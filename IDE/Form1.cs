@@ -21,6 +21,8 @@ namespace IDE
         {
             InitializeComponent();
             edits = new List<FileEdit>();
+
+
         }
 
         private void NewFile(object sender, EventArgs e)
@@ -30,6 +32,7 @@ namespace IDE
             tabControl1.SelectTab(edit.Tab);
             edit.TextBox.Select();
             edits.Add(edit);
+            UpdateUI();
         }
 
         private void OpenFile(object sender, EventArgs e)
@@ -93,25 +96,7 @@ namespace IDE
                     }
                     else
                     {
-                        using (var dialog = new SaveFileDialog())
-                        {
-                            dialog.Title = "Save file as";
-                            dialog.Filter = "Functional Studio files (*.func)|*.func";
-                            dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-
-                            Enabled = false;
-                            if (dialog.ShowDialog() == DialogResult.OK)
-                            {
-                                try
-                                {
-                                    edit.SaveFileAs(dialog.FileName);
-                                }
-                                catch (DirectoryNotFoundException)
-                                {
-                                    MessageBox.Show("Invalid file path");
-                                }
-                            }
-                        }
+                        SaveTabFileAs(edit);
                     }
 
                     break;
@@ -122,7 +107,59 @@ namespace IDE
         }
         private void SaveFileAs(object sender, EventArgs e)
         {
+            foreach (FileEdit edit in edits)
+            {
+                if (tabControl1.SelectedTab == edit.Tab)
+                {
+                    SaveTabFileAs(edit);
 
+                    break;
+                }
+            }
+        }
+
+        private void SaveTabFileAs(FileEdit edit)
+        {
+            using (var dialog = new SaveFileDialog())
+            {
+                dialog.Title = "Save file as";
+                dialog.Filter = "Functional Studio files (*.func)|*.func";
+                dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+
+                Enabled = false;
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        edit.SaveFileAs(dialog.FileName);
+                    }
+                    catch (DirectoryNotFoundException)
+                    {
+                        MessageBox.Show("Invalid file path");
+                    }
+                }
+                Enabled = true;
+            }
+        }
+
+        private void CheckShortcuts(object sender, KeyEventArgs e)
+        {
+            if (e.Control)
+            {
+                switch (e.KeyCode)
+                {
+                    case Keys.N:
+                        NewFile(this, EventArgs.Empty);
+                        break;
+
+                    case Keys.S:
+                        SaveFile(this, EventArgs.Empty);
+                        break;
+
+                    default:
+                        break;
+                }
+            }
         }
 
         private void splitContainer1_SplitterMoved(object sender, SplitterEventArgs e)
@@ -191,7 +228,7 @@ namespace IDE
                     {
                         File.WriteAllText(FilePath, TextBox.Text);
                         Saved = true;
-                        Tab.Text = Tab.Text.Substring(0, Tab.Text.Length - 1);
+                        Tab.Text = Path.GetFileName(FilePath);
 
                     }
                     catch (DirectoryNotFoundException e)
@@ -218,5 +255,7 @@ namespace IDE
                 }
             }
         }
+
+        
     }
 }
