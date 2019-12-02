@@ -19,24 +19,28 @@ namespace IDE
 
         public Form1()
         {
+            //Though in practice Visual Studio discourages editing the InitializeComponent function, I did so to assign custom event handlers, e.g. NewFile and OpenFile
+            
             InitializeComponent();
             edits = new List<FileEdit>();
 
 
         }
 
-        private void NewFile(object sender, EventArgs e)
+        private void NewFile(object sender, EventArgs e)    //Handles newToolStripMenuItem.Click and toolStripSplitButtonNew.Click
         {
             var edit = new FileEdit(tabControl1);
 
+            //User-friendliness, auto-focuses text editor in tab when opening a new file
             tabControl1.SelectTab(edit.Tab);
             edit.TextBox.Select();
             edits.Add(edit);
             UpdateUI();
         }
 
-        private void OpenFile(object sender, EventArgs e)
+        private void OpenFile(object sender, EventArgs e)   //Handles openToolStripMenuItem.Click and toolStripButtonOpen.Click
         {
+            //In-built file opening dialog
             using (var dialog = new OpenFileDialog())
             {
                 dialog.Title = "Open file";
@@ -51,12 +55,14 @@ namespace IDE
                     {
                         var edit = new FileEdit(tabControl1, dialog.FileName);
 
+                        //User-friendliness, auto-focuses text editor in tab when opening a new file
                         tabControl1.SelectTab(edit.Tab);
                         edit.TextBox.Select();
                         edits.Add(edit);
                     }
                     catch (FileNotFoundException)
                     {
+                        //In theory this exception catch should never occur, as the dialog handles all file path issues. It's here just in case
                         MessageBox.Show("File not found.");
                     }
                 }
@@ -66,25 +72,7 @@ namespace IDE
             }
         }
 
-        private void UpdateUI()
-        {
-            if (edits.Count > 0)
-            {
-                toolStripButtonSave.Enabled = true;
-                toolStripButtonSaveAs.Enabled = true;
-                saveToolStripMenuItem.Enabled = true;
-                saveAsToolStripMenuItem.Enabled = true;
-            }
-            else
-            {
-                toolStripButtonSave.Enabled = false;
-                toolStripButtonSaveAs.Enabled = false;
-                saveToolStripMenuItem.Enabled = false;
-                saveAsToolStripMenuItem.Enabled = false;
-            }
-        }
-
-        private void SaveFile(object sender, EventArgs e)
+        private void SaveFile(object sender, EventArgs e)   //Handles saveToolStripMenuItem.Click and toolStripButtonSave.Click
         {
             foreach (FileEdit edit in edits)
             {
@@ -105,7 +93,7 @@ namespace IDE
 
             
         }
-        private void SaveFileAs(object sender, EventArgs e)
+        private void SaveFileAs(object sender, EventArgs e) //Handles saveAsToolStripMenuItem.Click and toolStripButtonSaveAs.Click
         {
             foreach (FileEdit edit in edits)
             {
@@ -118,6 +106,7 @@ namespace IDE
             }
         }
 
+        //Subroutine to handle save-as file dialog, placed in a separate function as both SaveFile and SaveFileAs call the same sequence
         private void SaveTabFileAs(FileEdit edit)
         {
             using (var dialog = new SaveFileDialog())
@@ -135,6 +124,7 @@ namespace IDE
                     }
                     catch (DirectoryNotFoundException)
                     {
+                        //Again, this exception catch should never occur, as the dialog will handle file path issues
                         MessageBox.Show("Invalid file path");
                     }
                 }
@@ -142,6 +132,27 @@ namespace IDE
             }
         }
 
+        //This function should be called when at any point the state of the form changes such that the toolbar and menus need to have certain items enabled/disabled
+        //Enabled/disable save and save as buttons depending on if files are open
+        private void UpdateUI()
+        {
+            if (edits.Count > 0)
+            {
+                toolStripButtonSave.Enabled = true;
+                toolStripButtonSaveAs.Enabled = true;
+                saveToolStripMenuItem.Enabled = true;
+                saveAsToolStripMenuItem.Enabled = true;
+            }
+            else
+            {
+                toolStripButtonSave.Enabled = false;
+                toolStripButtonSaveAs.Enabled = false;
+                saveToolStripMenuItem.Enabled = false;
+                saveAsToolStripMenuItem.Enabled = false;
+            }
+        }
+
+        //Allows for ctrl shortcuts. Directly maps to button features e.g. save
         private void CheckShortcuts(object sender, KeyEventArgs e)
         {
             if (e.Control)
@@ -167,6 +178,8 @@ namespace IDE
 
         }
 
+        //Classifies file-editing tab object, including handling nuance of unsaved files (titled 'Untitled'), saving and saving as, changing file path and tab title
+        //when necessary i.e. once saved as a new file, title needs to change accordingly.
         private class FileEdit
         {
             public readonly TabPage Tab;
@@ -182,7 +195,7 @@ namespace IDE
                 FilePath = "";
 
                 Tab.Controls.Add(TextBox);
-                TextBox.Dock = DockStyle.Fill;
+                TextBox.Dock = DockStyle.Fill;  //Necessary for textbox to scale with the window properly when resizing
                 TextBox.WordWrap = false;
                 TextBox.Font = new Font("Consolas", 9);
                 TextBox.AcceptsTab = true;
@@ -246,6 +259,7 @@ namespace IDE
                 SaveFile();
             }
 
+            //UI feature: asterisk indicates changes aren't saved
             private void FileChanged(object sender, EventArgs e)
             {
                 if (Saved)

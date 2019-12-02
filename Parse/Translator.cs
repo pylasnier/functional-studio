@@ -17,23 +17,41 @@ namespace Parse
             return;
         }
 
+        public struct SymbolicLong
+        {
+            public ulong CodeLong { get; private set; } //Custom getters and setters need to be written, both directly changing other SymbolicLong properties representing the code
+
+            public bool IsFunctionCall;
+            public OperandType OperandType;
+            public int ArrayLength;
+            public bool IsArrayElement;
+
+            public SymbolicLong(ulong uulong)
+            {
+                CodeLong = uulong;
+                IsFunctionCall = false;
+                OperandType = OperandType.Integer;
+                ArrayLength = 0;
+                IsArrayElement = false;
+            }
+
+            public static implicit operator ulong(SymbolicLong s) => s.CodeLong;
+            public static explicit operator SymbolicLong(ulong u) => new SymbolicLong(u);
+        }
+
         private enum ParserState
         {
             Global,
             Function
         }
 
-        public struct SymbolicLong
+        public enum OperandType
         {
-            public ulong CodeLong { get; private set; }
-
-            public SymbolicLong(ulong uulong)
-            {
-                CodeLong = uulong;
-            }
-
-            public static implicit operator ulong(SymbolicLong s) => s.CodeLong;
-            public static explicit operator SymbolicLong(ulong u) => new SymbolicLong(u);
+            Integer,
+            Float,
+            Character,
+            Boolean,
+            Array
         }
     }
 }

@@ -193,7 +193,7 @@
             this.toolStripSplitButtonNew.Name = "toolStripSplitButtonNew";
             this.toolStripSplitButtonNew.Size = new System.Drawing.Size(32, 22);
             this.toolStripSplitButtonNew.Text = "New";
-            this.toolStripSplitButtonNew.ButtonClick += new System.EventHandler(this.NewFile);
+            this.toolStripSplitButtonNew.Click += new System.EventHandler(this.NewFile);
             // 
             // newFileToolStripMenuItem
             // 
