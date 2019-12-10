@@ -3,18 +3,38 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace Parse
 {
     public static class Translator
     {
-        public static SymbolicLong[,] Compile(string sourceCode)
+        public static FunctionDefinition[] Compile(string sourceCode)
         {
-            ParserState state = ParserState.Global;
+            FunctionDefinition[] functions = new FunctionDefinition[1];
+            functions[0] = new FunctionDefinition();
+            List<SymbolicLong> code = new List<SymbolicLong>();
 
-            foreach (var character )
+            for (int i = 0; i < sourceCode.Length; /*Increments handle within loop*/)
+            {
+                string functionName;
+                List<string> parameters = new List<string>();
+
+                ParserState state = ParserState.Global;
+                while (String.IsNullOrWhiteSpace(sourceCode[i].ToString())) i++;
+
+                while()
+            }
 
             return;
+        }
+
+        public struct FunctionDefinition
+        {
+            public ulong CallHash;
+            public OperandType InputType;
+            public OperandType OutputType;
+            public SymbolicLong[] SymbolicCode;
         }
 
         public struct SymbolicLong
@@ -29,6 +49,8 @@ namespace Parse
             public SymbolicLong(ulong uulong)
             {
                 CodeLong = uulong;
+
+                //Gonna have to remove these later
                 IsFunctionCall = false;
                 OperandType = OperandType.Integer;
                 ArrayLength = 0;
