@@ -9,13 +9,26 @@ namespace Parse
 {
     public static class Translator
     {
+        private static Token[] Tokenise(string sourceCode)
+        {
+            List<Token> tokenString = new List<Token>();
+            int bracketNesting = 0;
+
+            for (int i = 0; i < sourceCode.Length; /*Increments handled within loop*/)
+            {
+                ParserState state = ParserState.Global;
+
+                if (new Regex("(").Match(sourceCode, i).)
+            }
+        }
+
         public static FunctionDefinition[] Compile(string sourceCode)
         {
             FunctionDefinition[] functions = new FunctionDefinition[1];
             functions[0] = new FunctionDefinition();
             List<SymbolicLong> code = new List<SymbolicLong>();
 
-            for (int i = 0; i < sourceCode.Length; /*Increments handle within loop*/)
+            for (int i = 0; i < sourceCode.Length; /*Increments handled within loop*/)
             {
                 string functionName;
                 List<string> parameters = new List<string>();
@@ -27,6 +40,12 @@ namespace Parse
             }
 
             return;
+        }
+
+        private struct Token
+        {
+            int HashCode;
+            TokenType TokenType;
         }
 
         public struct FunctionDefinition
@@ -65,6 +84,15 @@ namespace Parse
         {
             Global,
             Function
+        }
+
+        private enum TokenType
+        {
+            OpenBracket,
+            CloseBracket,
+            DataType,
+            FunctionMap,
+            Identifier
         }
 
         public enum OperandType
