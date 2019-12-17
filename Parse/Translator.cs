@@ -9,16 +9,28 @@ namespace Parse
 {
     public static class Translator
     {
-        private static Token[] Tokenise(string sourceCode)
+        private static ParserReturnState Tokenise(string sourceCode, out Token[] TokenCode)
         {
             List<Token> tokenString = new List<Token>();
+            ParserReturnState returnState = new ParserReturnState();
             int bracketNesting = 0;
+            bool wordBeforeRelation = false;
+
+            var OpenBracket = new Regex("(");
+            var CloseBracket = new Regex(")");
+            var Equate = new Regex("=");
+            var Functionmap = new Regex("->");
+            var Word = new Regex("\b[A-Z|a-z][A-Z|a-z|0-9]*");
+            var Semicolon = new Regex(";");         //Don't implement this yet, will be used for sequential code later
+
+            var CompositeRegex = new Regex(@"^$")
 
             for (int i = 0; i < sourceCode.Length; /*Increments handled within loop*/)
             {
                 ParserState state = ParserState.Global;
 
-                if (new Regex("(").Match(sourceCode, i).)
+                var Match = Word.Match(sourceCode, );
+                Word.IsMatch(sourceCode);
             }
         }
 
@@ -44,7 +56,7 @@ namespace Parse
 
         private struct Token
         {
-            int HashCode;
+            string Word;
             TokenType TokenType;
         }
 
@@ -80,19 +92,39 @@ namespace Parse
             public static explicit operator SymbolicLong(ulong u) => new SymbolicLong(u);
         }
 
-        private enum ParserState
+        public struct ParserReturnState
         {
-            Global,
-            Function
+            public bool Success;
+            public Stack<ParserReturnErrorInfo> Errors;
+        }
+
+        public struct ParserReturnErrorInfo
+        {
+            ParserReturnError Error;
+            int Index;
+        }
+
+        public enum ParserReturnError
+        {
+            InvalidIdentifier,
+            BadBracketNesting,
+            MissingWordBeforeRelation
         }
 
         private enum TokenType
         {
             OpenBracket,
             CloseBracket,
-            DataType,
+            Equate,
             FunctionMap,
-            Identifier
+            Word,
+            Semicolon
+        }
+
+        private enum ParserState
+        {
+            Global,
+            Function
         }
 
         public enum OperandType
