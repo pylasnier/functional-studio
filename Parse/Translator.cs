@@ -12,26 +12,26 @@ namespace Parse
         private static ParserReturnState Tokenise(string sourceCode, out Token[] TokenCode)
         {
             List<Token> tokenString = new List<Token>();
+            bool[] codeMatched = new bool[sourceCode.Length];
             ParserReturnState returnState = new ParserReturnState();
-            int bracketNesting = 0;
-            bool wordBeforeRelation = false;
+            MatchCollection matches;
 
-            var OpenBracket = new Regex("(");
-            var CloseBracket = new Regex(")");
+            var OpenBracket = new Regex(@"\(");
+            var CloseBracket = new Regex(@"\)");
             var Equate = new Regex("=");
             var Functionmap = new Regex("->");
             var Word = new Regex("\b[A-Z|a-z][A-Z|a-z|0-9]*");
             var Semicolon = new Regex(";");         //Don't implement this yet, will be used for sequential code later
 
-            var CompositeRegex = new Regex(@"^$")
-
-            for (int i = 0; i < sourceCode.Length; /*Increments handled within loop*/)
+            //OpenBracket matching
+            matches = OpenBracket.Matches(sourceCode);
+            foreach (Match match in matches)
             {
-                ParserState state = ParserState.Global;
-
-                var Match = Word.Match(sourceCode, );
-                Word.IsMatch(sourceCode);
+                match.
             }
+
+            //Private struct with index of token source to aid in sorting
+
         }
 
         public static FunctionDefinition[] Compile(string sourceCode)
@@ -106,7 +106,7 @@ namespace Parse
 
         public enum ParserReturnError
         {
-            InvalidIdentifier,
+            InvalidSyntax,
             BadBracketNesting,
             MissingWordBeforeRelation
         }
