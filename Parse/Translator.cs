@@ -29,9 +29,6 @@ namespace Parse
             {
                 match.
             }
-
-            //Private struct with index of token source to aid in sorting
-
         }
 
         public static FunctionDefinition[] Compile(string sourceCode)
