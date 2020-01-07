@@ -15,17 +15,17 @@ namespace Utility
         public static T[] MergeSort<T>(T[] sortingArray, bool descendingOrder = false) where T : IComparable
         {
             //Stack of tuple arrays, tuple describes the index and the length of a split segment from the array
-            //As the stack gets pushed onto, more and more divisions are made, so more and more segments are the array
-            //The stack is used to 'remember' the algorithms splitting to be able to correctly merge back
+            //As the stack gets pushed onto, more and more divisions are made, so more and more segments are made
+            //The stack is used to 'remember' the algorithm's splitting and segments to be able to correctly merge back on the way up
             Stack<(int, int)[]> divisions = new Stack<(int, int)[]>();
-            divisions.Push(new [] { (0, sortingArray.Length) });                                //Not actually necessary, just demonstrates the complete array as one segment
+            divisions.Push(new [] { (0, sortingArray.Length) });                                    //Not actually necessary, just demonstrates the complete array as one segment
             
             bool dividing = true;
             while (dividing)
             {
                 dividing = false;                                                                   //Remains false if no divisions are made and loop is exited
                 (int, int)[] currentDivides = divisions.Peek();
-            List<(int, int)> newDivides = new List<(int, int)>();                                   //Using a list instead of an array as it is dynamic, and we
+                List<(int, int)> newDivides = new List<(int, int)>();                               //Using a list instead of an array as it is dynamic, and we
                 for (int i = 0; i < currentDivides.Length; i++)                                     //don't know how many divisions and segments will be made
                 {
                     int startIndex = currentDivides[i].Item1;
@@ -57,7 +57,7 @@ namespace Utility
 
                     T[] tempArray = new T[length1 + length2];
 
-                    int j, k;                                       //Effectively j + k is indexer for tempArray, but only one of either j or k will get incremented in each interation
+                    int j, k;                                       //Effectively j + k is the indexer for tempArray, but only one of either j or k will get incremented in each interation
                     for (j = 0, k = 0; j < length1 && k < length2; /*Increments handled in loop*/)
                     {
                         if (sortingArray[index1 + j].CompareTo(sortingArray[index2 + k]) < 0 ^ descendingOrder)     //XOR (^) with descending order just flips the comparison
@@ -91,6 +91,18 @@ namespace Utility
             }
 
             return sortingArray;
+        }
+
+        //Merge sort overload
+        public static void MergeSort<T>(this T[] sortingArray, bool descendingOrder = false) where T : IComparable => sortingArray = MergeSort(sortingArray, descendingOrder);
+
+        //This is a small tool to help with array manipulation, for if you want to populate a chunk of an array with just one value
+        public static void Populate<T>(this T[] array, T value, int startIndex, int length)
+        {
+            for (int i = 0; i < length; i++)
+            {
+                array[startIndex + i] = value;
+            }
         }
     }
 }

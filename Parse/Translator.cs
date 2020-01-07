@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
+using Utility;
 
 namespace Parse
 {
@@ -11,7 +12,7 @@ namespace Parse
     {
         private static ParserReturnState Tokenise(string sourceCode, out Token[] TokenCode)
         {
-            List<Token> tokenString = new List<Token>();
+            List<Token> tokenCollection = new List<Token>();
             bool[] codeMatched = new bool[sourceCode.Length];
             ParserReturnState returnState = new ParserReturnState();
             MatchCollection matches;
@@ -19,16 +20,60 @@ namespace Parse
             var OpenBracket = new Regex(@"\(");
             var CloseBracket = new Regex(@"\)");
             var Equate = new Regex("=");
-            var Functionmap = new Regex("->");
+            var FunctionMap = new Regex("->");
             var Word = new Regex("\b[A-Z|a-z][A-Z|a-z|0-9]*");
             var Semicolon = new Regex(";");         //Don't implement this yet, will be used for sequential code later
+
+            codeMatched.Populate(false, 0, codeMatched.Length);
 
             //OpenBracket matching
             matches = OpenBracket.Matches(sourceCode);
             foreach (Match match in matches)
             {
-                match.
+                tokenCollection.Add(new Token("(", TokenType.OpenBracket, match.Index));        //Passing the string for the operator here is actually redundant; the translator is
+                codeMatched.Populate(true, match.Index, match.Length);                          //capable of identifying what the token represents by its type alone. Just for good measure
             }
+
+            //CloseBracket matching
+            matches = CloseBracket.Matches(sourceCode);
+            foreach (Match match in matches)
+            {
+                tokenCollection.Add(new Token(")", TokenType.CloseBracket, match.Index));
+                codeMatched.Populate(true, match.Index, match.Length);
+            }
+
+            //Equate matching
+            matches = Equate.Matches(sourceCode);
+            foreach (Match match in matches)
+            {
+                tokenCollection.Add(new Token("=", TokenType.Equate, match.Index));
+                codeMatched.Populate(true, match.Index, match.Length);
+            }
+
+            //FunctionMap matching
+            matches = FunctionMap.Matches(sourceCode);
+            foreach (Match match in matches)
+            {
+                tokenCollection.Add(new Token("->", TokenType.FunctionMap, match.Index));
+                codeMatched.Populate(true, match.Index, match.Length);
+            }
+
+            //Word matching
+            matches = Word.Matches(sourceCode);
+            foreach (Match match in matches)
+            {
+                tokenCollection.Add(new Token(match.Value, TokenType.Word, match.Index));   //Here the string depends on the source code, which could be any valid identifier
+                codeMatched.Populate(true, match.Index, match.Length);
+            }
+
+            //Finding whitespace just to fill codeMatched, so that it doesn't detect spaces as syntax errors
+            matches = new Regex(@"\s").Matches(sourceCode);
+            foreach (Match match in matches)
+            {
+                codeMatched.Populate(true, match.Index, match.Length);
+            }
+
+            Token[] tokenString = Tools.
         }
 
         public static FunctionDefinition[] Compile(string sourceCode)
@@ -51,10 +96,24 @@ namespace Parse
             return;
         }
 
-        private struct Token
+        private struct Token : IComparable
         {
             string Word;
             TokenType TokenType;
+            int Index;
+
+            public Token(string word, TokenType tokenType, int index)
+            {
+                Word = word;
+                TokenType = tokenType;
+                Index = index;
+            }
+
+            public int CompareTo(object obj)        //Necessary to be comparable by index so that the tokeniser can sort all tokens once made
+            {
+                Token token = (Token)obj;
+                return Index - token.Index;
+            }
         }
 
         public struct FunctionDefinition
