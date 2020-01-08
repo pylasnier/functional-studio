@@ -10,6 +10,12 @@ namespace Parse
 {
     public static class Translator
     {
+        public static void CallMe(string code)
+        {
+            Token[] output;
+            Tokenise(code, out output);
+        }
+
         private static ParserReturnState Tokenise(string sourceCode, out Token[] TokenCode)
         {
             List<Token> tokenCollection = new List<Token>();
@@ -73,123 +79,149 @@ namespace Parse
                 codeMatched.Populate(true, match.Index, match.Length);
             }
 
-            Token[] tokenString = Tools.
-        }
+            //Main useful output, the tokenised code
+            TokenCode = tokenCollection.ToArray();
+            TokenCode.Sort();
 
-        public static FunctionDefinition[] Compile(string sourceCode)
-        {
-            FunctionDefinition[] functions = new FunctionDefinition[1];
-            functions[0] = new FunctionDefinition();
-            List<SymbolicLong> code = new List<SymbolicLong>();
-
-            for (int i = 0; i < sourceCode.Length; /*Increments handled within loop*/)
+            //Error output, indicates success or partial failure and errors if there are failures
+            if (codeMatched.All(element => element == false))
             {
-                string functionName;
-                List<string> parameters = new List<string>();
-
-                ParserState state = ParserState.Global;
-                while (String.IsNullOrWhiteSpace(sourceCode[i].ToString())) i++;
-
-                while()
+                returnState.Success = false;
+                //Loops through to find each occurence of an error
+                for (int i = 0; i < codeMatched.Length; /*Increments handled in loop*/)
+                {
+                    if (codeMatched[i] == false)
+                    {
+                        returnState.Errors.Push(new ParserReturnErrorInfo(ParserReturnError.InvalidSyntax, i));
+                        while (codeMatched[i] == false) i++;
+                    }
+                    else i++;
+                }
             }
 
-            return;
+            return returnState;
         }
 
-        private struct Token : IComparable
+        //public static FunctionDefinition[] Compile(string sourceCode)
+        //{
+        //    FunctionDefinition[] functions = new FunctionDefinition[1];
+        //    functions[0] = new FunctionDefinition();
+        //    List<SymbolicLong> code = new List<SymbolicLong>();
+
+        //    for (int i = 0; i < sourceCode.Length; /*Increments handled within loop*/)
+        //    {
+        //        string functionName;
+        //        List<string> parameters = new List<string>();
+
+        //        ParserState state = ParserState.Global;
+        //        while (String.IsNullOrWhiteSpace(sourceCode[i].ToString())) i++;
+
+        //        while()
+        //    }
+
+        //    return;
+        //}
+    }
+
+    struct Token : IComparable
+    {
+        string Word;
+        TokenType TokenType;
+        int Index;
+
+        public Token(string word, TokenType tokenType, int index)
         {
-            string Word;
-            TokenType TokenType;
-            int Index;
-
-            public Token(string word, TokenType tokenType, int index)
-            {
-                Word = word;
-                TokenType = tokenType;
-                Index = index;
-            }
-
-            public int CompareTo(object obj)        //Necessary to be comparable by index so that the tokeniser can sort all tokens once made
-            {
-                Token token = (Token)obj;
-                return Index - token.Index;
-            }
+            Word = word;
+            TokenType = tokenType;
+            Index = index;
         }
 
-        public struct FunctionDefinition
+        public int CompareTo(object obj)        //Necessary to be comparable by index so that the tokeniser can sort all tokens once made
         {
-            public ulong CallHash;
-            public OperandType InputType;
-            public OperandType OutputType;
-            public SymbolicLong[] SymbolicCode;
+            Token token = (Token)obj;
+            return Index - token.Index;
         }
+    }
 
-        public struct SymbolicLong
+    public struct FunctionDefinition
+    {
+        public ulong CallHash;
+        public OperandType InputType;
+        public OperandType OutputType;
+        public SymbolicLong[] SymbolicCode;
+    }
+
+    public struct SymbolicLong
+    {
+        public ulong CodeLong { get; private set; } //Custom getters and setters need to be written, both directly changing other SymbolicLong properties representing the code
+
+        public bool IsFunctionCall;
+        public OperandType OperandType;
+        public int ArrayLength;
+        public bool IsArrayElement;
+
+        public SymbolicLong(ulong uulong)
         {
-            public ulong CodeLong { get; private set; } //Custom getters and setters need to be written, both directly changing other SymbolicLong properties representing the code
+            CodeLong = uulong;
 
-            public bool IsFunctionCall;
-            public OperandType OperandType;
-            public int ArrayLength;
-            public bool IsArrayElement;
-
-            public SymbolicLong(ulong uulong)
-            {
-                CodeLong = uulong;
-
-                //Gonna have to remove these later
-                IsFunctionCall = false;
-                OperandType = OperandType.Integer;
-                ArrayLength = 0;
-                IsArrayElement = false;
-            }
-
-            public static implicit operator ulong(SymbolicLong s) => s.CodeLong;
-            public static explicit operator SymbolicLong(ulong u) => new SymbolicLong(u);
+            //Gonna have to remove these later
+            IsFunctionCall = false;
+            OperandType = OperandType.Integer;
+            ArrayLength = 0;
+            IsArrayElement = false;
         }
 
-        public struct ParserReturnState
+        public static implicit operator ulong(SymbolicLong s) => s.CodeLong;
+        public static explicit operator SymbolicLong(ulong u) => new SymbolicLong(u);
+    }
+
+    public struct ParserReturnState
+    {
+        public bool Success;
+        public Stack<ParserReturnErrorInfo> Errors;
+    }
+
+    public struct ParserReturnErrorInfo
+    {
+        ParserReturnError Error;
+        int Index;
+
+        public ParserReturnErrorInfo(ParserReturnError error, int index)
         {
-            public bool Success;
-            public Stack<ParserReturnErrorInfo> Errors;
+            Error = error;
+            Index = index;
         }
+    }
 
-        public struct ParserReturnErrorInfo
-        {
-            ParserReturnError Error;
-            int Index;
-        }
+    public enum ParserReturnError
+    {
+        InvalidSyntax,
+        BadBracketNesting,
+        MissingWordBeforeRelation
+    }
 
-        public enum ParserReturnError
-        {
-            InvalidSyntax,
-            BadBracketNesting,
-            MissingWordBeforeRelation
-        }
+    enum TokenType
+    {
+        OpenBracket,
+        CloseBracket,
+        Equate,
+        FunctionMap,
+        Word,
+        Semicolon
+    }
 
-        private enum TokenType
-        {
-            OpenBracket,
-            CloseBracket,
-            Equate,
-            FunctionMap,
-            Word,
-            Semicolon
-        }
+    enum ParserState
+    {
+        Global,
+        Function
+    }
 
-        private enum ParserState
-        {
-            Global,
-            Function
-        }
-
-        public enum OperandType
-        {
-            Integer,
-            Float,
-            Character,
-            Boolean,
-            Array
-        }
+    public enum OperandType
+    {
+        Integer,
+        Float,
+        Character,
+        Boolean,
+        Array
     }
 }

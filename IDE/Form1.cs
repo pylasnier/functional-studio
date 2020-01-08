@@ -11,6 +11,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
+using Parse;
+
 namespace IDE
 {
     public partial class Form1 : Form
@@ -129,6 +131,17 @@ namespace IDE
                     }
                 }
                 Enabled = true;
+            }
+        }
+
+        private void BuildProgram(object sender, EventArgs e)   //Handles buildProgramToolStripMenuItem.Click
+        {
+            foreach (FileEdit edit in edits)
+            {
+                if (tabControl1.SelectedTab == edit.Tab)
+                {
+                    Translator.CallMe(edit.TextBox.Text);
+                }
             }
         }
 

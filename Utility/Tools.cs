@@ -93,8 +93,8 @@ namespace Utility
             return sortingArray;
         }
 
-        //Merge sort overload
-        public static void MergeSort<T>(this T[] sortingArray, bool descendingOrder = false) where T : IComparable => sortingArray = MergeSort(sortingArray, descendingOrder);
+        //Merge sort as an extension method
+        public static void Sort<T>(this T[] sortingArray, bool descendingOrder = false) where T : IComparable => sortingArray = MergeSort(sortingArray, descendingOrder);
 
         //This is a small tool to help with array manipulation, for if you want to populate a chunk of an array with just one value
         public static void Populate<T>(this T[] array, T value, int startIndex, int length)

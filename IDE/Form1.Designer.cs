@@ -63,6 +63,7 @@
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.buildProgramToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip1.SuspendLayout();
             this.toolStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -148,6 +149,8 @@
             // 
             // buildToolStripMenuItem
             // 
+            this.buildToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.buildProgramToolStripMenuItem});
             this.buildToolStripMenuItem.Name = "buildToolStripMenuItem";
             this.buildToolStripMenuItem.Size = new System.Drawing.Size(46, 20);
             this.buildToolStripMenuItem.Text = "Build";
@@ -285,13 +288,13 @@
             // startToolStripMenuItem
             // 
             this.startToolStripMenuItem.Name = "startToolStripMenuItem";
-            this.startToolStripMenuItem.Size = new System.Drawing.Size(136, 22);
+            this.startToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.startToolStripMenuItem.Text = "Start";
             // 
             // startDebugToolStripMenuItem
             // 
             this.startDebugToolStripMenuItem.Name = "startDebugToolStripMenuItem";
-            this.startDebugToolStripMenuItem.Size = new System.Drawing.Size(136, 22);
+            this.startDebugToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.startDebugToolStripMenuItem.Text = "Start Debug";
             // 
             // toolStripSeparator3
@@ -388,6 +391,13 @@
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "groupBox1";
             // 
+            // buildProgramToolStripMenuItem
+            // 
+            this.buildProgramToolStripMenuItem.Name = "buildProgramToolStripMenuItem";
+            this.buildProgramToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.buildProgramToolStripMenuItem.Text = "Build program";
+            this.buildProgramToolStripMenuItem.Click += new System.EventHandler(this.BuildProgram);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -450,6 +460,7 @@
         private System.Windows.Forms.ToolStripMenuItem openToolStripMenuItem;
         private System.Windows.Forms.SplitContainer splitContainer1;
         private System.Windows.Forms.GroupBox groupBox1;
+        private System.Windows.Forms.ToolStripMenuItem buildProgramToolStripMenuItem;
     }
 }
 

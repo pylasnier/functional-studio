@@ -84,5 +84,11 @@
   <ItemGroup>
     <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Parse\Parse.csproj">
+      <Project>{ace75e2e-25e5-466c-8005-619bd559ca18}</Project>
+      <Name>Parse</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
