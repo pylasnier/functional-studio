@@ -27,7 +27,7 @@ namespace Parse
             var CloseBracket = new Regex(@"\)");
             var Equate = new Regex("=");
             var FunctionMap = new Regex("->");
-            var Word = new Regex("\b[A-Z|a-z][A-Z|a-z|0-9]*");
+            var Word = new Regex(@"\b[A-Z|a-z][A-Z|a-z|0-9]*");
             var Semicolon = new Regex(";");         //Don't implement this yet, will be used for sequential code later
 
             codeMatched.Populate(false, 0, codeMatched.Length);
@@ -84,7 +84,7 @@ namespace Parse
             TokenCode.Sort();
 
             //Error output, indicates success or partial failure and errors if there are failures
-            if (codeMatched.All(element => element == false))
+            if (!codeMatched.All(element => element == true))
             {
                 returnState.Success = false;
                 //Loops through to find each occurence of an error
@@ -179,6 +179,11 @@ namespace Parse
     {
         public bool Success;
         public Stack<ParserReturnErrorInfo> Errors;
+
+        public ParserReturnState()
+        {
+            Errors = new Stack<ParserReturnErrorInfo>();
+        }
     }
 
     public struct ParserReturnErrorInfo
