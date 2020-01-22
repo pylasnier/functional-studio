@@ -47,7 +47,7 @@ namespace IDE
             {
                 dialog.Title = "Open file";
                 dialog.Multiselect = false;
-                dialog.Filter = "Functional Studio files (*.func)|*.func";
+                dialog.Filter = "Functional Studio files (*.ps)|*.ps";
                 dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
                 Enabled = false;
@@ -114,7 +114,7 @@ namespace IDE
             using (var dialog = new SaveFileDialog())
             {
                 dialog.Title = "Save file as";
-                dialog.Filter = "Functional Studio files (*.func)|*.func";
+                dialog.Filter = "Functional Studio files (*.ps)|*.ps";
                 dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
                 Enabled = false;

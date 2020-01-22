@@ -20,14 +20,15 @@ namespace Parse
         {
             List<Token> tokenCollection = new List<Token>();
             bool[] codeMatched = new bool[sourceCode.Length];
-            ParserReturnState returnState = new ParserReturnState();
+            ParserReturnState returnState;
             MatchCollection matches;
 
             var OpenBracket = new Regex(@"\(");
             var CloseBracket = new Regex(@"\)");
             var Equate = new Regex("=");
             var FunctionMap = new Regex("->");
-            var Word = new Regex(@"\b[A-Z|a-z][A-Z|a-z|0-9]*");
+            var Word = new Regex(@"(?<=\s)[A-Z|a-z][A-Z|a-z|0-9]*|^[A-Z|a-z][A-Z|a-z|0-9]*");
+            var Operand = new Regex(@"(?<=\s)" + "[[0-9]+[\\.[0-9]+]?|\'.\'|true|false" + "^[[0-9]+[\\.[0-9]+]?|\'.\'|true|false");
             var Semicolon = new Regex(";");         //Don't implement this yet, will be used for sequential code later
 
             codeMatched.Populate(false, 0, codeMatched.Length);
@@ -68,7 +69,18 @@ namespace Parse
             matches = Word.Matches(sourceCode);
             foreach (Match match in matches)
             {
-                tokenCollection.Add(new Token(match.Value, TokenType.Word, match.Index));   //Here the string depends on the source code, which could be any valid identifier
+                if (match.Value != "true" && match.Value != "false")        //Only operands that could be interpreted as words, but shouldn't be
+                {
+                    tokenCollection.Add(new Token(match.Value, TokenType.Word, match.Index));   //Here the string depends on the source code, which could be any valid identifier
+                    codeMatched.Populate(true, match.Index, match.Length);
+                }
+            }
+
+            //Operand matching
+            matches = Operand.Matches(sourceCode);
+            foreach (Match match in matches)
+            {
+                tokenCollection.Add(new Token(match.Value, TokenType.Operand, match.Index));
                 codeMatched.Populate(true, match.Index, match.Length);
             }
 
@@ -86,17 +98,21 @@ namespace Parse
             //Error output, indicates success or partial failure and errors if there are failures
             if (!codeMatched.All(element => element == true))
             {
-                returnState.Success = false;
+                returnState = new ParserReturnState(false);
                 //Loops through to find each occurence of an error
                 for (int i = 0; i < codeMatched.Length; /*Increments handled in loop*/)
                 {
                     if (codeMatched[i] == false)
                     {
                         returnState.Errors.Push(new ParserReturnErrorInfo(ParserReturnError.InvalidSyntax, i));
-                        while (codeMatched[i] == false) i++;
+                        while (i < codeMatched.Length && codeMatched[i] == false) i++;
                     }
                     else i++;
                 }
+            }
+            else
+            {
+                returnState = new ParserReturnState(true);
             }
 
             return returnState;
@@ -175,13 +191,20 @@ namespace Parse
         public static explicit operator SymbolicLong(ulong u) => new SymbolicLong(u);
     }
 
-    public struct ParserReturnState
+    public class ParserReturnState
     {
-        public bool Success;
-        public Stack<ParserReturnErrorInfo> Errors;
+        public readonly bool Success;
+        public readonly Stack<ParserReturnErrorInfo> Errors;
 
         public ParserReturnState()
         {
+            Success = false;
+            Errors = new Stack<ParserReturnErrorInfo>();
+        }
+
+        public ParserReturnState(bool success)
+        {
+            Success = success;
             Errors = new Stack<ParserReturnErrorInfo>();
         }
     }
@@ -212,6 +235,7 @@ namespace Parse
         Equate,
         FunctionMap,
         Word,
+        Operand,
         Semicolon
     }
 
