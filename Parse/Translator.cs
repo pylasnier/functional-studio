@@ -159,14 +159,6 @@ namespace Parse
         }
     }
 
-    public struct FunctionDefinition
-    {
-        public ulong CallHash;
-        public OperandType InputType;
-        public OperandType OutputType;
-        public SymbolicLong[] SymbolicCode;
-    }
-
     public struct SymbolicLong
     {
         public ulong CodeLong { get; private set; } //Custom getters and setters need to be written, both directly changing other SymbolicLong properties representing the code
@@ -189,6 +181,16 @@ namespace Parse
 
         public static implicit operator ulong(SymbolicLong s) => s.CodeLong;
         public static explicit operator SymbolicLong(ulong u) => new SymbolicLong(u);
+    }
+
+    public class PFunction
+    {
+        IType ArgumentType;
+
+        public PFunction Evaluate()
+        {
+            throw new NotImplementedException();
+        }
     }
 
     public class ParserReturnState
@@ -252,5 +254,51 @@ namespace Parse
         Character,
         Boolean,
         Array
+    }
+
+    public interface IType
+    {
+        Type Type();
+    }
+
+    public struct PInteger : IType
+    {
+        public Type Type() => typeof(int);
+    }
+
+    public struct PFloat : IType
+    {
+        public Type Type() => typeof(float);
+    }
+
+    public struct PCharacter : IType
+    {
+        public Type Type() => typeof(char);
+    }
+
+    public struct PBool : IType
+    {
+        public Type Type() => typeof(bool);
+    }
+
+    public struct PArray<T> : IType where T : IType
+    {
+        public Type Type() => typeof(T[]);
+    }
+
+    public 
+
+    public class PaskellRuntimeException : Exception
+    {
+        new public PaskellRuntimeException InnerException;
+        public PFunction PFunction;
+        public string ErrorMessage;
+
+        public PaskellRuntimeException(string errorMessage, PFunction pFunction, PaskellRuntimeException innerException = null)
+        {
+            ErrorMessage = errorMessage;
+            PFunction = pFunction;
+            InnerException = innerException;
+        }
     }
 }
