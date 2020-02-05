@@ -15,7 +15,9 @@ namespace Parse
         public static void CallMe(string code)
         {
             Token[] output;
+            PContext context;
             Tokenise(code, out output);
+            Compile(output, out context);
         }
 
         private static ParserReturnState Tokenise(string sourceCode, out Token[] TokenCode)
@@ -62,6 +64,89 @@ namespace Parse
                         while (i < codeMatched.Length && codeMatched[i] == false) i++;
                     }
                     else i++;
+                }
+            }
+            else
+            {
+                returnState = new ParserReturnState(true);
+            }
+
+            return returnState;
+        }
+
+        private static ParserReturnState Compile(Token[] tokenCode, out PContext Context)
+        {
+            List<PExpression> myExpressions = new List<PExpression>();
+            bool[] codeMatched = new bool[tokenCode.Length];
+            ParserReturnState returnState;
+
+            codeMatched.Populate(false, 0, tokenCode.Length);
+
+            for (int i = 0; i < tokenCode.Length; /*Increment handled inside of loop*/)
+            {
+                PExpression myExpression = new PExpression();
+
+                if (tokenCode[i].TokenType == TokenType.Word && tokenCode[i].Code == "Integer")
+                {
+                    //Well done
+                    codeMatched[i] = true;
+                    i++;
+                }
+                else
+                {
+                    i++;
+                    continue;
+                }
+
+                if (tokenCode[i].TokenType == TokenType.Word)
+                {
+                    //Keep it up
+                    myExpression = new PExpression(tokenCode[i].Code);
+                    i++;
+                }
+                else
+                {
+                    i++;
+                    continue;
+                }
+
+                if (tokenCode[i].TokenType == TokenType.Equate)
+                {
+                    //Well done
+                    i++;
+                }
+                else
+                {
+                    i++;
+                    continue;
+                }
+
+                if (tokenCode[i].TokenType == TokenType.Operand && int.TryParse(tokenCode[i].Code, out int thisResult))
+                {
+                    //Well done
+                    myExpression.Value = thisResult;
+                    i++;
+                }
+                else
+                {
+                    i++;
+                    continue;
+                }
+
+                myExpressions.Add(myExpression);
+            }
+
+            Context = new PContext(myExpressions.ToArray());
+
+            if (codeMatched.Any(element => element == false))
+            {
+                returnState = new ParserReturnState(false);
+                for (int i = 0; i < codeMatched.Length; i++)
+                {
+                    if (codeMatched[i] == false)
+                    {
+                        returnState.Errors.Push(new ParserReturnErrorInfo(ParserReturnError.InvalidSyntax, i));
+                    }
                 }
             }
             else
@@ -176,13 +261,48 @@ namespace Parse
         public static explicit operator SymbolicLong(ulong u) => new SymbolicLong(u);
     }
 
+    public class PContext
+    {
+        public PExpression[] Expressions;
+
+        public PContext(PExpression[] expressions)
+        {
+            Expressions = expressions;
+        }
+    }
+
     public class PFunction
     {
-        OperandType ArgumentType;
+        public OperandType ArgumentType;
 
         public PFunction Evaluate(object arg)
         {
             throw new NotImplementedException();
+        }
+    }
+
+    public class PExpression
+    {
+        public bool IsFunction;
+        public string Identifier;
+        public dynamic Value;
+
+        public PExpression()
+        {
+            IsFunction = false;
+        }
+
+        public PExpression(string identifier)
+        {
+            IsFunction = false;
+            Identifier = identifier;
+        }
+
+        public PExpression(string identifier, dynamic value)
+        {
+            IsFunction = false;
+            Identifier = identifier;
+            Value = value;
         }
     }
 
@@ -206,8 +326,8 @@ namespace Parse
 
     public struct ParserReturnErrorInfo
     {
-        ParserReturnError Error;
-        int Index;
+        public ParserReturnError Error;
+        public int Index;
 
         public ParserReturnErrorInfo(ParserReturnError error, int index)
         {
@@ -241,22 +361,22 @@ namespace Parse
 
     enum ParserState
     {
-        Global,
-        Function
+        Declaration,
+        Definition
     }
 
     public enum OperandType
     {
         Integer,
         Float,
-        Character,
-        Boolean,
+        Char,
+        Bool,
         Array
     }
 
     public class PaskellRuntimeException : Exception
     {
-        new public PaskellRuntimeException InnerException;
+        public new PaskellRuntimeException InnerException;
         public PFunction PFunction;
         public string ErrorMessage;
 
