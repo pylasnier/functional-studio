@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
+using System.Reflection;
 using Utility;
 
 namespace Parse
@@ -23,65 +25,17 @@ namespace Parse
             ParserReturnState returnState;
             MatchCollection matches;
 
-            var OpenBracket = new Regex(@"\(");
-            var CloseBracket = new Regex(@"\)");
-            var Equate = new Regex("=");
-            var FunctionMap = new Regex("->");
-            var Word = new Regex(@"(?<=\s)[A-Z|a-z][A-Z|a-z|0-9]*|^[A-Z|a-z][A-Z|a-z|0-9]*");
-            var Operand = new Regex(@"(?<=\s)" + "[[0-9]+[\\.[0-9]+]?|\'.\'|true|false" + "^[[0-9]+[\\.[0-9]+]?|\'.\'|true|false");
-            var Semicolon = new Regex(";");         //Don't implement this yet, will be used for sequential code later
-
             codeMatched.Populate(false, 0, codeMatched.Length);
 
-            //OpenBracket matching
-            matches = OpenBracket.Matches(sourceCode);
-            foreach (Match match in matches)
+            //Loops through every token for their regex patterns, as given by their RegexPattern custom attribute
+            foreach (var tokenType in Enum.GetValues(typeof(TokenType)))
             {
-                tokenCollection.Add(new Token("(", TokenType.OpenBracket, match.Index));        //Passing the string for the operator here is actually redundant; the translator is
-                codeMatched.Populate(true, match.Index, match.Length);                          //capable of identifying what the token represents by its type alone. Just for good measure
-            }
-
-            //CloseBracket matching
-            matches = CloseBracket.Matches(sourceCode);
-            foreach (Match match in matches)
-            {
-                tokenCollection.Add(new Token(")", TokenType.CloseBracket, match.Index));
-                codeMatched.Populate(true, match.Index, match.Length);
-            }
-
-            //Equate matching
-            matches = Equate.Matches(sourceCode);
-            foreach (Match match in matches)
-            {
-                tokenCollection.Add(new Token("=", TokenType.Equate, match.Index));
-                codeMatched.Populate(true, match.Index, match.Length);
-            }
-
-            //FunctionMap matching
-            matches = FunctionMap.Matches(sourceCode);
-            foreach (Match match in matches)
-            {
-                tokenCollection.Add(new Token("->", TokenType.FunctionMap, match.Index));
-                codeMatched.Populate(true, match.Index, match.Length);
-            }
-
-            //Word matching
-            matches = Word.Matches(sourceCode);
-            foreach (Match match in matches)
-            {
-                if (match.Value != "true" && match.Value != "false")        //Only operands that could be interpreted as words, but shouldn't be
+                matches = new Regex(((TokenType) tokenType).GetPattern()).Matches(sourceCode);
+                foreach (Match match in matches)
                 {
-                    tokenCollection.Add(new Token(match.Value, TokenType.Word, match.Index));   //Here the string depends on the source code, which could be any valid identifier
+                    tokenCollection.Add(new Token(match.Value, (TokenType) tokenType, match.Index));
                     codeMatched.Populate(true, match.Index, match.Length);
                 }
-            }
-
-            //Operand matching
-            matches = Operand.Matches(sourceCode);
-            foreach (Match match in matches)
-            {
-                tokenCollection.Add(new Token(match.Value, TokenType.Operand, match.Index));
-                codeMatched.Populate(true, match.Index, match.Length);
             }
 
             //Finding whitespace just to fill codeMatched, so that it doesn't detect spaces as syntax errors
@@ -96,7 +50,7 @@ namespace Parse
             TokenCode.Sort();
 
             //Error output, indicates success or partial failure and errors if there are failures
-            if (!codeMatched.All(element => element == true))
+            if (codeMatched.Any(element => element == false))
             {
                 returnState = new ParserReturnState(false);
                 //Loops through to find each occurence of an error
@@ -139,15 +93,41 @@ namespace Parse
         //}
     }
 
+    //https://stackoverflow.com/questions/479410/enum-tostring-with-user-friendly-strings
+    static class RegexEnumExtension
+    {
+        public static string GetPattern(this TokenType enumValue)
+        {
+            string pattern = "";
+            MemberInfo memberInfo = enumValue.GetType().GetMember(enumValue.ToString())[0];
+            foreach (var customAttribute in memberInfo.GetCustomAttributes(typeof(RegexPattern), false))
+            {
+                pattern = ((RegexPattern) customAttribute).Pattern;
+            }
+
+            return pattern;
+        }
+    }
+
+    class RegexPattern : Attribute
+    {
+        public string Pattern;
+
+        public RegexPattern(string pattern)
+        {
+            Pattern = pattern;
+        }
+    }
+
     struct Token : IComparable
     {
-        string Word;
-        TokenType TokenType;
-        int Index;
+        public readonly string Code;
+        public readonly TokenType TokenType;
+        public readonly int Index;
 
-        public Token(string word, TokenType tokenType, int index)
+        public Token(string code, TokenType tokenType, int index)
         {
-            Word = word;
+            Code = code;
             TokenType = tokenType;
             Index = index;
         }
@@ -157,6 +137,19 @@ namespace Parse
             Token token = (Token)obj;
             return Index - token.Index;
         }
+    }
+
+    public class TypeSignature
+    {
+
+    }
+
+    public struct FunctionDefinition
+    {
+        public ulong CallHash;
+        public OperandType InputType;
+        public OperandType OutputType;
+        public SymbolicLong[] SymbolicCode;
     }
 
     public struct SymbolicLong
@@ -232,12 +225,17 @@ namespace Parse
 
     enum TokenType
     {
-        OpenBracket,
-        CloseBracket,
+        [RegexPattern(@"\(|\)")]
+        Bracket,
+        [RegexPattern("=")]
         Equate,
+        [RegexPattern("->")]
         FunctionMap,
+        [RegexPattern(@"(?!true|false)((?<=\s)|^)[A-Za-z][A-Za-z0-9]*")]
         Word,
+        [RegexPattern(@"((?<=\s)|^)(([0-9]+(\.[0-9]+)?)|('.')|true|false)(?![A-Za-z0-9]|\.)")]
         Operand,
+        [RegexPattern(";")]
         Semicolon
     }
 
