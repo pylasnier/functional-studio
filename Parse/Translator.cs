@@ -178,9 +178,9 @@ namespace Parse
 
     public class PFunction
     {
-        IType ArgumentType;
+        OperandType ArgumentType;
 
-        public PFunction Evaluate()
+        public PFunction Evaluate(object arg)
         {
             throw new NotImplementedException();
         }
@@ -253,38 +253,6 @@ namespace Parse
         Boolean,
         Array
     }
-
-    public interface IType
-    {
-        Type Type();
-    }
-
-    public struct PInteger : IType
-    {
-        public Type Type() => typeof(int);
-    }
-
-    public struct PFloat : IType
-    {
-        public Type Type() => typeof(float);
-    }
-
-    public struct PCharacter : IType
-    {
-        public Type Type() => typeof(char);
-    }
-
-    public struct PBool : IType
-    {
-        public Type Type() => typeof(bool);
-    }
-
-    public struct PArray<T> : IType where T : IType
-    {
-        public Type Type() => typeof(T[]);
-    }
-
-    public 
 
     public class PaskellRuntimeException : Exception
     {
