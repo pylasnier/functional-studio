@@ -85,55 +85,50 @@ namespace Parse
             for (int i = 0; i < tokenCode.Length; /*Increment handled inside of loop*/)
             {
                 PExpression myExpression = new PExpression();
-
-                if (tokenCode[i].TokenType == TokenType.Word && tokenCode[i].Code == "Integer")
-                {
-                    //Well done
-                    codeMatched[i] = true;
-                    i++;
-                }
-                else
-                {
-                    i++;
-                    continue;
-                }
+                bool isFunction = false;
+                Type type = null;
 
                 if (tokenCode[i].TokenType == TokenType.Word)
                 {
-                    //Keep it up
-                    myExpression = new PExpression(tokenCode[i].Code);
-                    i++;
-                }
-                else
-                {
-                    i++;
-                    continue;
-                }
-
-                if (tokenCode[i].TokenType == TokenType.Equate)
-                {
-                    //Well done
-                    i++;
-                }
-                else
-                {
-                    i++;
-                    continue;
+                    foreach (OperandType operandType in Enum.GetValues(typeof(OperandType)))
+                    {
+                        if (tokenCode[i].Code == operandType.ToString())
+                        {
+                            type = operandType.GetPType();
+                            codeMatched[i] = true;
+                            i++;
+                            break;
+                        }
+                    }
                 }
 
-                if (tokenCode[i].TokenType == TokenType.Operand && int.TryParse(tokenCode[i].Code, out int thisResult))
+                if (type != null)
                 {
-                    //Well done
-                    myExpression.Value = thisResult;
-                    i++;
-                }
-                else
-                {
-                    i++;
-                    continue;
+                    if (tokenCode[i].TokenType == TokenType.Word)
+                    {
+                        myExpression.Identifier = tokenCode[i].Code;
+                        i++;
+
+                        if (tokenCode[i].TokenType == TokenType.Equate)
+                        {
+                            i++;
+
+                            if (tokenCode[i].TokenType == TokenType.Operand)
+                            {
+                                var converter = TypeDescriptor.GetConverter(type);
+                                try
+                                {
+                                    myExpression.Value = converter.ConvertFrom(tokenCode[i].Code);
+                                    myExpressions.Add(myExpression);
+                                    codeMatched[i] = true;
+                                }
+                                catch { }
+                            }
+                        }
+                    }
                 }
 
-                myExpressions.Add(myExpression);
+                i++;
             }
 
             Context = new PContext(myExpressions.ToArray());
@@ -179,7 +174,7 @@ namespace Parse
     }
 
     //https://stackoverflow.com/questions/479410/enum-tostring-with-user-friendly-strings
-    static class RegexEnumExtension
+    static class CustomEnumExtensions
     {
         public static string GetPattern(this TokenType enumValue)
         {
@@ -192,6 +187,18 @@ namespace Parse
 
             return pattern;
         }
+
+        public static Type GetPType(this OperandType enumValue)
+        {
+            Type type = null;
+            MemberInfo memberInfo = enumValue.GetType().GetMember(enumValue.ToString())[0];
+            foreach (var customAttribute in memberInfo.GetCustomAttributes(typeof(PaskellType), false))
+            {
+                type = ((PaskellType)customAttribute).Type;
+            }
+
+            return type;
+        }
     }
 
     class RegexPattern : Attribute
@@ -201,6 +208,16 @@ namespace Parse
         public RegexPattern(string pattern)
         {
             Pattern = pattern;
+        }
+    }
+
+    class PaskellType : Attribute
+    {
+        public Type Type;
+
+        public PaskellType(Type type)
+        {
+            Type = type;
         }
     }
 
@@ -252,7 +269,7 @@ namespace Parse
 
             //Gonna have to remove these later
             IsFunctionCall = false;
-            OperandType = OperandType.Integer;
+            OperandType = OperandType.Int;
             ArrayLength = 0;
             IsArrayElement = false;
         }
@@ -367,11 +384,14 @@ namespace Parse
 
     public enum OperandType
     {
-        Integer,
+        [PaskellType(typeof(long))]
+        Int,
+        [PaskellType(typeof(double))]
         Float,
+        [PaskellType(typeof(char))]
         Char,
-        Bool,
-        Array
+        [PaskellType(typeof(bool))]
+        Bool
     }
 
     public class PaskellRuntimeException : Exception
