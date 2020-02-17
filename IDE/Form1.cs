@@ -248,22 +248,19 @@ namespace IDE
         private class FileEdit : IDisposable
         {
             public readonly TabPage Tab;
-            public readonly RichTextBox TextBox;
+            public readonly EditorTextBox TextBox;
             public bool Saved;
             public string FilePath { get; private set; }
 
             public FileEdit(TabControl tabControl)
             {
                 Tab = new TabPage("Untitled");
-                TextBox = new RichTextBox();
+                TextBox = new EditorTextBox { Font = new Font("Consolas", 9) };
                 Saved = true;
                 FilePath = "";
 
                 Tab.Controls.Add(TextBox);
                 TextBox.Dock = DockStyle.Fill;  //Necessary for textbox to scale with the window properly when resizing
-                TextBox.WordWrap = false;
-                TextBox.Font = new Font("Consolas", 9);
-                TextBox.AcceptsTab = true;
                 TextBox.TextChanged += TextChanged;
 
                 tabControl.TabPages.Add(Tab);
@@ -284,16 +281,14 @@ namespace IDE
                 }
                 
                 Tab = new TabPage(Path.GetFileName(filePath));
-                TextBox = new RichTextBox {Text = text};
+                TextBox = new EditorTextBox {Text = text, Font = new Font("Consolas", 9)};
                 Saved = true;
                 FilePath = filePath;
 
                 Tab.Controls.Add(TextBox);
                 TextBox.Dock = DockStyle.Fill;
-                TextBox.WordWrap = false;
-                TextBox.Font = new Font("Consolas", 9);
-                TextBox.AcceptsTab = true;
                 TextBox.TextChanged += TextChanged;
+                TextBox.UpdateLineNumbers();
 
                 tabControl.TabPages.Add(Tab);
             }

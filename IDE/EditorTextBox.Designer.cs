@@ -1,4 +1,6 @@
-﻿namespace IDE
+﻿using System.Windows.Forms;
+
+namespace IDE
 {
     partial class EditorTextBox
     {
@@ -58,6 +60,7 @@
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.textBox.DetectUrls = false;
+            this.textBox.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.textBox.Location = new System.Drawing.Point(50, 0);
             this.textBox.Margin = new System.Windows.Forms.Padding(0);
             this.textBox.Name = "textBox";
@@ -68,13 +71,12 @@
             // 
             // lineNumbers
             // 
-            this.lineNumbers.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+            this.lineNumbers.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left)));
             this.lineNumbers.Location = new System.Drawing.Point(0, 0);
             this.lineNumbers.Margin = new System.Windows.Forms.Padding(0);
             this.lineNumbers.Name = "lineNumbers";
-            this.lineNumbers.ReadOnly = true;
+            this.lineNumbers.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.None;
             this.lineNumbers.Size = new System.Drawing.Size(50, 25);
             this.lineNumbers.TabIndex = 1;
             this.lineNumbers.Text = "";

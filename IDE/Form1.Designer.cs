@@ -1,4 +1,7 @@
-﻿namespace IDE
+﻿using System.Drawing;
+using System.Drawing.Text;
+
+namespace IDE
 {
     partial class Form1
     {
@@ -63,14 +66,12 @@
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.editorTextBox1 = new IDE.EditorTextBox();
             this.menuStrip1.SuspendLayout();
             this.toolStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
-            this.groupBox1.SuspendLayout();
             this.SuspendLayout();
             // 
             // menuStrip1
@@ -393,7 +394,6 @@
             // 
             // groupBox1
             // 
-            this.groupBox1.Controls.Add(this.editorTextBox1);
             this.groupBox1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.groupBox1.Location = new System.Drawing.Point(0, 0);
             this.groupBox1.Name = "groupBox1";
@@ -401,13 +401,6 @@
             this.groupBox1.TabIndex = 0;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "groupBox1";
-            // 
-            // editorTextBox1
-            // 
-            this.editorTextBox1.Location = new System.Drawing.Point(27, 52);
-            this.editorTextBox1.Name = "editorTextBox1";
-            this.editorTextBox1.Size = new System.Drawing.Size(106, 25);
-            this.editorTextBox1.TabIndex = 0;
             // 
             // Form1
             // 
@@ -429,7 +422,6 @@
             this.splitContainer1.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
-            this.groupBox1.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -471,7 +463,6 @@
         private System.Windows.Forms.ToolStripMenuItem buildProgramToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem closeToolStripMenuItem;
         private System.Windows.Forms.ToolStripButton toolStripSplitButtonNew;
-        private EditorTextBox editorTextBox1;
     }
 }
 
