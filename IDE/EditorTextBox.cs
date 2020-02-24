@@ -12,8 +12,6 @@ namespace IDE
 {
     public partial class EditorTextBox : UserControl
     {
-        private int lineCount = 1;
-
         public override Font Font
         {
             get => textBox.Font;
@@ -28,6 +26,34 @@ namespace IDE
         {
             get => textBox.Text;
             set => textBox.Text = value;
+        }
+
+        public int LineCount        //textbox.Lines.Length doesn't quite give me what I want
+        {
+            get
+            {
+                int value = 1;
+                bool lastLineEmpty = true;
+                for (int i = 0; i < Text.Length; i++)
+                {
+                    if (Text[i] == '\n')
+                    {
+                        value++;
+                        lastLineEmpty = true;
+                    }
+                    else if (lastLineEmpty)
+                    {
+                        lastLineEmpty = false;
+                    }
+                }
+
+                if (lastLineEmpty)
+                {
+                    value--;
+                }
+
+                return value;
+            }
         }
 
         public new event EventHandler TextChanged
@@ -50,27 +76,24 @@ namespace IDE
 
         public void UpdateLineNumbers()
         {
-            if (textBox.Lines.Length == 0)
+            string newNumbers = "";
+            for (int i = 0; i <= LineCount; i++)
             {
-                lineCount = 1;
-                lineNumbers.Text = "1\n";
-
-                lineNumbers.SelectAll();
-                lineNumbers.SelectionAlignment = HorizontalAlignment.Right;
-                lineNumbers.DeselectAll();
+                newNumbers += $"{i + 1}\n";
             }
-            else if (textBox.Lines.Length != lineCount)
-            {
-                lineCount = textBox.Lines.Length;
-                lineNumbers.Text = "";
-                for (int i = 1; i <= lineCount; i++)
-                {
-                    lineNumbers.Text += $"{i}\n";
-                }
 
-                lineNumbers.SelectAll();
-                lineNumbers.SelectionAlignment = HorizontalAlignment.Right;
-                lineNumbers.DeselectAll();
+            lineNumbers.Text = newNumbers;
+            
+            container.Height = textBox.Font.Height * (LineCount + 2);
+
+            if (LineCount == 0)
+            {
+                vScrollBar.Enabled = false;
+                vScrollBar.Maximum = 0;
+            }
+            else
+            {
+                
             }
         }
     }
