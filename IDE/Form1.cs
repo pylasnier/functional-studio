@@ -10,7 +10,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-
+using System.Windows.Forms.VisualStyles;
 using Parse;
 
 namespace IDE
@@ -288,9 +288,10 @@ namespace IDE
                 Tab.Controls.Add(TextBox);
                 TextBox.Dock = DockStyle.Fill;
                 TextBox.TextChanged += TextChanged;
-                TextBox.UpdateLineNumbers();
 
                 tabControl.TabPages.Add(Tab);
+                
+                TextBox.ResetText();
             }
 
             public void SaveFile()
