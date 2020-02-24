@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Data;
 using System.Linq;
+using System.Runtime.Remoting.Channels;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -66,6 +67,8 @@ namespace IDE
         {
             InitializeComponent();
             TextChanged += OnTextChanged;
+            vScrollBar.Scroll += (sender, e) =>{ container.Location = new Point(0, 
+                (int) (-vScrollBar.Value / (LineCount + Height / Font.Height) / Math.Max(1f, LineCount - 1f) * Math.Max(Font.Height, textBox.GetPositionFromCharIndex(Text.Length - 1).Y))); };
             UpdateLineNumbers();
         }
 
@@ -73,6 +76,11 @@ namespace IDE
         {
             UpdateLineNumbers();
         }
+
+        //private void OnScroll(object sender, ScrollEventArgs e)
+        //{
+        //    panel.VerticalScroll.Value = e.NewValue;
+        //}
 
         public void UpdateLineNumbers()
         {
@@ -84,7 +92,7 @@ namespace IDE
 
             lineNumbers.Text = newNumbers;
             
-            container.Height = textBox.Font.Height * (LineCount + 2);
+            container.Height = Font.Height * LineCount + Height;
 
             if (LineCount == 0)
             {
@@ -93,7 +101,10 @@ namespace IDE
             }
             else
             {
-                
+                vScrollBar.Maximum = (LineCount + Height / Font.Height) * (LineCount + Height / Font.Height);
+                vScrollBar.SmallChange = Math.Min(3, LineCount) * (LineCount + Height / Font.Height);
+                vScrollBar.LargeChange = Height / Font.Height * (LineCount + Height / Font.Height);
+                vScrollBar.Enabled = true;
             }
         }
     }

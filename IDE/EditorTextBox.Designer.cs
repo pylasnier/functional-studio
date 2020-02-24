@@ -33,10 +33,8 @@ namespace IDE
             this.container = new System.Windows.Forms.TableLayoutPanel();
             this.textBox = new System.Windows.Forms.RichTextBox();
             this.lineNumbers = new System.Windows.Forms.Label();
-            this.panel1 = new System.Windows.Forms.Panel();
             this.vScrollBar = new System.Windows.Forms.VScrollBar();
             this.container.SuspendLayout();
-            this.panel1.SuspendLayout();
             this.SuspendLayout();
             // 
             // container
@@ -64,12 +62,11 @@ namespace IDE
             this.textBox.DetectUrls = false;
             this.textBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.textBox.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.textBox.Location = new System.Drawing.Point(52, 0);
-            this.textBox.Margin = new System.Windows.Forms.Padding(0);
-            this.textBox.MaximumSize = new System.Drawing.Size(0, 999999);
+            this.textBox.Location = new System.Drawing.Point(52, 3);
+            this.textBox.Margin = new System.Windows.Forms.Padding(0, 3, 0, 0);
             this.textBox.Name = "textBox";
             this.textBox.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.None;
-            this.textBox.Size = new System.Drawing.Size(366, 66);
+            this.textBox.Size = new System.Drawing.Size(366, 63);
             this.textBox.TabIndex = 0;
             this.textBox.Text = "";
             this.textBox.WordWrap = false;
@@ -77,25 +74,13 @@ namespace IDE
             // lineNumbers
             // 
             this.lineNumbers.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lineNumbers.Location = new System.Drawing.Point(0, 0);
-            this.lineNumbers.Margin = new System.Windows.Forms.Padding(0, 0, 3, 0);
-            this.lineNumbers.MaximumSize = new System.Drawing.Size(0, 999999);
+            this.lineNumbers.Location = new System.Drawing.Point(0, 3);
+            this.lineNumbers.Margin = new System.Windows.Forms.Padding(0, 3, 3, 0);
             this.lineNumbers.Name = "lineNumbers";
-            this.lineNumbers.Size = new System.Drawing.Size(49, 66);
+            this.lineNumbers.Size = new System.Drawing.Size(49, 63);
             this.lineNumbers.TabIndex = 1;
             this.lineNumbers.Text = "1";
             this.lineNumbers.TextAlign = System.Drawing.ContentAlignment.TopRight;
-            // 
-            // panel1
-            // 
-            this.panel1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.panel1.Controls.Add(this.container);
-            this.panel1.Location = new System.Drawing.Point(0, 0);
-            this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(418, 189);
-            this.panel1.TabIndex = 1;
             // 
             // vScrollBar
             // 
@@ -111,13 +96,12 @@ namespace IDE
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 14F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.Window;
+            this.Controls.Add(this.container);
             this.Controls.Add(this.vScrollBar);
-            this.Controls.Add(this.panel1);
             this.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.Name = "EditorTextBox";
             this.Size = new System.Drawing.Size(439, 189);
             this.container.ResumeLayout(false);
-            this.panel1.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -127,7 +111,6 @@ namespace IDE
         private System.Windows.Forms.TableLayoutPanel container;
         private System.Windows.Forms.RichTextBox textBox;
         private Label lineNumbers;
-        private Panel panel1;
         private VScrollBar vScrollBar;
     }
 }
