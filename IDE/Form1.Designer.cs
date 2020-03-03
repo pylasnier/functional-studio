@@ -390,7 +390,6 @@ namespace IDE
             this.splitContainer1.Size = new System.Drawing.Size(588, 264);
             this.splitContainer1.SplitterDistance = 440;
             this.splitContainer1.TabIndex = 5;
-            this.splitContainer1.SplitterMoved += new System.Windows.Forms.SplitterEventHandler(this.splitContainer1_SplitterMoved);
             // 
             // groupBox1
             // 

@@ -238,11 +238,6 @@ namespace IDE
 
         //^^ As is turns out, Visual Studio already has a solution for this as part of drop down menu properties
 
-        private void splitContainer1_SplitterMoved(object sender, SplitterEventArgs e)
-        {
-
-        }
-
         //Classifies file-editing tab object, including handling nuance of unsaved files (titled 'Untitled'), saving and saving as, changing file path and tab title
         //when necessary i.e. once saved as a new file, title needs to change accordingly.
         private class FileEdit : IDisposable

@@ -29,7 +29,7 @@ namespace IDE
             set => textBox.Text = value;
         }
 
-        public int LineCount        //textbox.Lines.Length doesn't quite give me what I want
+        public int LineCount        //textbox.Lines.Length doesn't quite give me what I want for line numbers
         {
             get
             {
@@ -94,16 +94,16 @@ namespace IDE
             
             container.Height = Font.Height * LineCount + Height;
 
-            if (LineCount == 0)
+            if (textBox.Lines.Length - 1 <= 0)
             {
                 vScrollBar.Enabled = false;
                 vScrollBar.Maximum = 0;
             }
             else
             {
-                vScrollBar.Maximum = (LineCount + Height / Font.Height) * (LineCount + Height / Font.Height);
-                vScrollBar.SmallChange = Math.Min(3, LineCount) * (LineCount + Height / Font.Height);
-                vScrollBar.LargeChange = Height / Font.Height * (LineCount + Height / Font.Height);
+                vScrollBar.Maximum = (textBox.Lines.Length - 1 + Height / Font.Height) * (textBox.Lines.Length - 1 + Height / Font.Height);
+                vScrollBar.SmallChange = Math.Min(3, textBox.Lines.Length - 1) * (textBox.Lines.Length - 1 + Height / Font.Height);
+                vScrollBar.LargeChange = Height / Font.Height * (textBox.Lines.Length - 1 + Height / Font.Height);
                 vScrollBar.Enabled = true;
             }
         }
