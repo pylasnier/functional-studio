@@ -286,6 +286,7 @@ namespace IDE
                 TextBox.UpdateLineNumbers();
 
                 tabControl.TabPages.Add(Tab);
+                TextBox.UpdateLineNumbers();
             }
 
             public void SaveFile()
