@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Drawing.Text;
+using System.Windows.Forms;
 
 namespace IDE
 {
@@ -423,6 +424,7 @@ namespace IDE
             this.splitContainer1.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
+            this.FormClosing += new FormClosingEventHandler(CloseAll);
 
         }
 

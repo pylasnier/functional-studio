@@ -12,12 +12,10 @@ namespace Parse
 {
     public static class Translator
     {
-        public static void CallMe(string code)
+        public static ParserReturnState CallMe(string code)
         {
             Token[] output;
-            PContext context;
-            Tokenise(code, out output);
-            Compile(output, out context);
+            return Tokenise(code, out output);
         }
 
         private static ParserReturnState Tokenise(string sourceCode, out Token[] TokenCode)
@@ -60,7 +58,7 @@ namespace Parse
                 {
                     if (codeMatched[i] == false)
                     {
-                        returnState.Errors.Push(new ParserReturnErrorInfo(ParserReturnError.InvalidSyntax, i));
+                        returnState.Errors.Push(new ParserReturnErrorInfo(ParserReturnError.BadIdentifier, i));
                         while (i < codeMatched.Length && codeMatched[i] == false) i++;
                     }
                     else i++;
@@ -140,7 +138,7 @@ namespace Parse
                 {
                     if (codeMatched[i] == false)
                     {
-                        returnState.Errors.Push(new ParserReturnErrorInfo(ParserReturnError.InvalidSyntax, i));
+                        returnState.Errors.Push(new ParserReturnErrorInfo(ParserReturnError.BadIdentifier, i));
                     }
                 }
             }
@@ -243,7 +241,10 @@ namespace Parse
 
     public class TypeSignature
     {
-
+        public bool IsFunction;
+        public Type Type;            // --Used if IsFunction is false
+        public TypeSignature Parameter;     // --Used if IsFunction is true
+        public TypeSignature Return;        // _/
     }
 
     public struct FunctionDefinition
@@ -300,26 +301,116 @@ namespace Parse
 
     public class PExpression
     {
-        public bool IsFunction;
+        public TypeSignature TypeSignature;
         public string Identifier;
         public dynamic Value;
+        public Queue<PExpression> SubExpressions = new Queue<PExpression>();
+        public bool IsArgument;
+        public int ArgumentIndex;
+        public bool Evaluated;
+
+        public bool IsBaseExpression;
+        public int ArgumentCount = 0;
+        public Queue<PExpression> Arguments = new Queue<PExpression>();
+        public Func<Queue<dynamic>, dynamic> Function;
 
         public PExpression()
         {
-            IsFunction = false;
+            TypeSignature = new TypeSignature { IsFunction = false };
         }
 
         public PExpression(string identifier)
         {
-            IsFunction = false;
+            TypeSignature = new TypeSignature { IsFunction = false };
             Identifier = identifier;
         }
 
         public PExpression(string identifier, dynamic value)
         {
-            IsFunction = false;
+            TypeSignature = new TypeSignature { IsFunction = false };
             Identifier = identifier;
             Value = value;
+        }
+
+        public PExpression Evaluate()
+        {
+            if (Evaluated)
+            {
+                return this;
+            }
+            else
+            {
+                PExpression workingExpression = SubExpressions.Dequeue();
+                while (SubExpressions.Count > 0)
+                {
+                    workingExpression = workingExpression.Evaluate(SubExpressions.Dequeue());
+                }
+
+                workingExpression.Evaluated = true;
+                return workingExpression;
+            }
+        }
+
+        public PExpression Evaluate(PExpression argument)
+        {
+            if (!IsBaseExpression)
+            {
+                for (int i = 0; i < SubExpressions.Count; i++)
+                {
+                    PExpression expression = SubExpressions.Dequeue();
+                    if (expression.IsArgument)
+                    {
+                        if (expression.ArgumentIndex == 0)
+                        {
+                            expression = argument;
+                        }
+                        else
+                        {
+                            expression.ArgumentIndex--;
+                        }
+                    }
+                    SubExpressions.Enqueue(expression);
+                }
+
+                TypeSignature.IsFunction = TypeSignature.Return.IsFunction;
+                if (TypeSignature.IsFunction)
+                {
+                    TypeSignature.Parameter = TypeSignature.Return.Parameter;
+                    TypeSignature.Return = TypeSignature.Return.Return;
+                }
+                else
+                {
+                    TypeSignature.Type = TypeSignature.Return.Type;
+                    PExpression returnValue = Evaluate();
+                    return returnValue;
+                }
+
+                return this;
+            }
+            else
+            {
+                PExpression returnValue;
+                Arguments.Enqueue(argument);
+                if (Arguments.Count == ArgumentCount)
+                {
+                    Queue<dynamic> evaluatedArgs = new Queue<dynamic>();
+                    foreach (var expression in Arguments)
+                    {
+                        evaluatedArgs.Enqueue(expression.Evaluate().Value);
+                    }
+                    var result = Function(evaluatedArgs);
+                    returnValue = new PExpression();
+                    returnValue.Value = result;
+                    returnValue.Evaluated = true;
+                    returnValue.IsBaseExpression = false;
+                }
+                else
+                {
+                    returnValue = this;
+                }
+
+                return returnValue;
+            }
         }
     }
 
@@ -355,7 +446,7 @@ namespace Parse
 
     public enum ParserReturnError
     {
-        InvalidSyntax,
+        BadIdentifier,
         BadBracketNesting,
         MissingWordBeforeRelation
     }

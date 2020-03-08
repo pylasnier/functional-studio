@@ -98,6 +98,10 @@
       <Project>{ace75e2e-25e5-466c-8005-619bd559ca18}</Project>
       <Name>Parse</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Utility\Utility.csproj">
+      <Project>{e930f0ed-342c-4e45-920d-a56f25dad4ad}</Project>
+      <Name>Utility</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
