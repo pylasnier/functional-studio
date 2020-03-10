@@ -241,10 +241,31 @@ namespace Parse
 
     public class TypeSignature
     {
-        public bool IsFunction;
-        public Type Type;            // --Used if IsFunction is false
+        public bool IsFunction { get; }
+        public Type Type;                   // --Used if IsFunction is false
         public TypeSignature Parameter;     // --Used if IsFunction is true
         public TypeSignature Return;        // _/
+
+        //Instantiates type signature of a variable, unspecified type
+        public TypeSignature()
+        {
+            IsFunction = false;
+        }
+
+        //Instantiates type signature of a variable of type given
+        public TypeSignature(Type type)
+        {
+            IsFunction = false;
+            Type = type;
+        }
+
+        //Instantiates type signature of function with given parameter and return signatures
+        public TypeSignature(TypeSignature parameter, TypeSignature returnt)
+        {
+            IsFunction = true;
+            Parameter = parameter;
+            Return = returnt;
+        }
     }
 
     public struct FunctionDefinition
@@ -301,86 +322,122 @@ namespace Parse
 
     public class PExpression
     {
-        public TypeSignature TypeSignature;
+        private TypeSignature TypeSignature;
         public string Identifier;
-        public dynamic Value;
-        public Queue<PExpression> SubExpressions = new Queue<PExpression>();
-        public bool IsArgument;
-        public int ArgumentIndex;
-        public bool Evaluated;
+        public dynamic Value { get; private set; }
+        public Queue<PExpression> SubExpressions;
+        public bool IsParameter = false;
+        public int ParameterIndex;
+        public bool Evaluated = false;
+        public bool Definition = true;
 
-        public bool IsBaseExpression;
+        private PExpressionType Type = PExpressionType.Definition;
+
+        public bool IsBaseExpression = false;
         public int ArgumentCount = 0;
         public Queue<PExpression> Arguments = new Queue<PExpression>();
-        public Func<Queue<dynamic>, dynamic> Function;
+        public Func<Queue<PExpression>, PExpression> Function;
 
-        public PExpression()
+        protected PExpression()
         {
-            TypeSignature = new TypeSignature { IsFunction = false };
+            Definition = false;
+            Type = PExpressionType.WorkedExpression;
         }
 
-        public PExpression(string identifier)
+        //Instantiates expression representing data value
+        public PExpression(dynamic value, string identifier = "")
         {
-            TypeSignature = new TypeSignature { IsFunction = false };
-            Identifier = identifier;
-        }
-
-        public PExpression(string identifier, dynamic value)
-        {
-            TypeSignature = new TypeSignature { IsFunction = false };
             Identifier = identifier;
             Value = value;
+            Evaluated = true;
+            Type = PExpressionType.Evaluated;
+            TypeSignature = new TypeSignature(value.GetType());
+        }
+
+        //Instatiates base function definition
+        public PExpression(Func<Queue<PExpression>, PExpression> function, TypeSignature typeSignature, int argumentCount, string identifier = "")
+        {
+            Identifier = identifier;
+            TypeSignature = typeSignature;
+            ArgumentCount = argumentCount;
+            IsBaseExpression = true;
+            Function = function;
+        }
+
+        //Instantiates function definition (function should be constructed using SubExpressions queue instantiated here)
+        public PExpression(string identifier = "")
+        {
+            Identifier = identifier;
+            SubExpressions = new Queue<PExpression>();
+        }
+
+        //Instantiates paramater of function (would be added to SubExpressions queue of function definition)
+        public PExpression(int parameterIndex)
+        {
+            IsParameter = true;
+            Type = PExpressionType.Parameter;
+            ParameterIndex = parameterIndex;
         }
 
         public PExpression Evaluate()
         {
-            if (Evaluated)
+            if (!TypeSignature.IsFunction)
             {
-                return this;
+                if (Type == PExpressionType.Evaluated)
+                {
+                    return this;
+                }
+                //Doesn't matter here if the expression is a definition, as it is a proper value that once evaluated once can remain as such
+                //and be used in multiple places without re-evaluating the expression
+                else
+                {
+                    PExpression workingExpression = SubExpressions.Dequeue();
+                    while (SubExpressions.Count > 0)
+                    {
+                        workingExpression = workingExpression.Evaluate(SubExpressions.Dequeue());
+                    }
+
+                    workingExpression.Evaluated = true;
+                    return workingExpression;
+                }
             }
             else
             {
-                PExpression workingExpression = SubExpressions.Dequeue();
-                while (SubExpressions.Count > 0)
-                {
-                    workingExpression = workingExpression.Evaluate(SubExpressions.Dequeue());
-                }
-
-                workingExpression.Evaluated = true;
-                return workingExpression;
+                throw new InvalidOperationException("Trying to evaluate function which doesn't return a proper value");
             }
         }
 
         public PExpression Evaluate(PExpression argument)
         {
+            //Important here however if that the expression is an definition, it remains unchanged and a new instance
+            //of the class is created as the worked expression, protecting the function definition
+            if (Type == PExpressionType.Definition)
+            {
+                PExpression workedExpression = new PExpression();
+
+            }
             if (!IsBaseExpression)
             {
                 for (int i = 0; i < SubExpressions.Count; i++)
                 {
                     PExpression expression = SubExpressions.Dequeue();
-                    if (expression.IsArgument)
+                    if (expression.IsParameter)
                     {
-                        if (expression.ArgumentIndex == 0)
+                        if (expression.ParameterIndex == 0)
                         {
                             expression = argument;
                         }
                         else
                         {
-                            expression.ArgumentIndex--;
+                            expression.ParameterIndex--;
                         }
                     }
                     SubExpressions.Enqueue(expression);
                 }
 
-                TypeSignature.IsFunction = TypeSignature.Return.IsFunction;
-                if (TypeSignature.IsFunction)
+                TypeSignature = TypeSignature.Return;
+                if (!TypeSignature.IsFunction)
                 {
-                    TypeSignature.Parameter = TypeSignature.Return.Parameter;
-                    TypeSignature.Return = TypeSignature.Return.Return;
-                }
-                else
-                {
-                    TypeSignature.Type = TypeSignature.Return.Type;
                     PExpression returnValue = Evaluate();
                     return returnValue;
                 }
@@ -391,18 +448,20 @@ namespace Parse
             {
                 PExpression returnValue;
                 Arguments.Enqueue(argument);
+                TypeSignature = TypeSignature.Return;
                 if (Arguments.Count == ArgumentCount)
                 {
-                    Queue<dynamic> evaluatedArgs = new Queue<dynamic>();
+                    Queue<PExpression> arguments = new Queue<PExpression>();
                     foreach (var expression in Arguments)
                     {
-                        evaluatedArgs.Enqueue(expression.Evaluate().Value);
+                        arguments.Enqueue(expression);
                     }
-                    var result = Function(evaluatedArgs);
-                    returnValue = new PExpression();
-                    returnValue.Value = result;
-                    returnValue.Evaluated = true;
-                    returnValue.IsBaseExpression = false;
+                    PExpression result = Function(arguments);
+                    if (!TypeSignature.IsFunction)
+                    {
+                        result = result.Evaluate();
+                    }
+                    return result;
                 }
                 else
                 {
@@ -483,6 +542,14 @@ namespace Parse
         Char,
         [PaskellType(typeof(bool))]
         Bool
+    }
+
+    enum PExpressionType
+    {
+        Definition,
+        WorkedExpression,
+        Parameter,
+        Evaluated
     }
 
     public class PaskellRuntimeException : Exception
