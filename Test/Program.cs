@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Utility;
+using Parse;
 
 namespace Test
 {
@@ -11,9 +12,7 @@ namespace Test
     {
         static void Main(string[] args)
         {
-            int[] test = {4, 8, 1, 9, 7, 6, 6, 4, 9, 4, 9, 5};
-
-            Console.WriteLine(string.Join(", ", Tools.MergeSort(test)));
+            ParserReturnState result = Translator.CallMe("(Int -> Int) werk bitch = asd\nChar thisthat = 1");
         }
     }
 }

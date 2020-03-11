@@ -29,6 +29,30 @@ namespace IDE
             set => textBox.Text = value;
         }
 
+        public int SelectionStart
+        {
+            get => textBox.SelectionStart;
+            set => textBox.SelectionStart = value;
+        }
+
+        public int SelectionLength
+        {
+            get => textBox.SelectionLength;
+            set => textBox.SelectionLength = value;
+        }
+
+        public Font SelectionFont
+        {
+            get => textBox.SelectionFont;
+            set => textBox.SelectionFont = value;
+        }
+
+        public void SelectAll() => textBox.SelectAll();
+
+        public void TextUpdate() => textBox.Update();
+
+        public IntPtr TextHandle => textBox.Handle;
+
         public int LineCount        //textbox.Lines.Length doesn't quite give me what I want for line numbers
         {
             get
@@ -91,7 +115,7 @@ namespace IDE
             }
 
             lineNumbers.Text = newNumbers;
-            
+
             container.Height = Font.Height * LineCount + Height;
 
             if (textBox.Lines.Length - 1 <= 0)
@@ -101,9 +125,14 @@ namespace IDE
             }
             else
             {
-                vScrollBar.Maximum = (textBox.Lines.Length - 1 + Height / Font.Height) * (textBox.Lines.Length - 1 + Height / Font.Height);
-                vScrollBar.SmallChange = Math.Min(3, textBox.Lines.Length - 1) * (textBox.Lines.Length - 1 + Height / Font.Height);
-                vScrollBar.LargeChange = Height / Font.Height * (textBox.Lines.Length - 1 + Height / Font.Height);
+                int scrollableLines =
+                    LineCount - (Text.Last() == '\n'
+                        ? 0
+                        : 1); //Only so that it doesn't scroll to the last line unless there was a newline character
+
+                vScrollBar.Maximum = (scrollableLines + Height / Font.Height) * (LineCount + Height / Font.Height);
+                vScrollBar.SmallChange = Math.Min(3, scrollableLines) * (LineCount + Height / Font.Height);
+                vScrollBar.LargeChange = Height / Font.Height * (LineCount + Height / Font.Height);
                 vScrollBar.Enabled = true;
             }
         }
