@@ -15,7 +15,9 @@ namespace Parse
         public static ParserReturnState CallMe(string code)
         {
             Token[] output;
-            return Tokenise(code, out output);
+            PContext context;
+            Tokenise(code, out output);
+            return Compile(output, out context);
         }
 
         private static ParserReturnState Tokenise(string sourceCode, out Token[] TokenCode)
@@ -74,101 +76,335 @@ namespace Parse
 
         private static ParserReturnState Compile(Token[] tokenCode, out PContext Context)
         {
-            List<PExpression> myExpressions = new List<PExpression>();
+            ParserReturnState returnState = new ParserReturnState();
+
+            List<Token[]> lines = new List<Token[]>();
+
+            List<PExpression> Expressions = new List<PExpression>();
+            Expressions.Add(new PExpression(Add, new TypeSignature(new TypeSignature(), new TypeSignature(new TypeSignature(), new TypeSignature())), 2, "Add"));
+            Expressions.Add(new PExpression(IfThenElse, new TypeSignature(new TypeSignature(typeof(bool)), new TypeSignature(new TypeSignature(), new TypeSignature(new TypeSignature(), new TypeSignature()))), 3, "IfThenElse"));
+
             bool[] codeMatched = new bool[tokenCode.Length];
-            ParserReturnState returnState;
 
-            codeMatched.Populate(false, 0, tokenCode.Length);
+            ParserState parserState = ParserState.TypeSignature;
 
-            for (int i = 0; i < tokenCode.Length; /*Increment handled inside of loop*/)
+            int startIndex = 0;
+            int endIndex;
+
+            //Divided code into lines
+            Token[] copyLine;
+            for (int i = 0; i < tokenCode.Length; i++)
             {
-                PExpression myExpression = new PExpression();
-                bool isFunction = false;
-                Type type = null;
-
-                if (tokenCode[i].TokenType == TokenType.Word)
+                if (tokenCode[i].TokenType == TokenType.LineBreak)
                 {
-                    foreach (OperandType operandType in Enum.GetValues(typeof(OperandType)))
-                    {
-                        if (tokenCode[i].Code == operandType.ToString())
-                        {
-                            type = operandType.GetPType();
-                            codeMatched[i] = true;
-                            i++;
-                            break;
-                        }
-                    }
+                    endIndex = i;
+                    copyLine = new Token[endIndex - startIndex];
+                    Array.Copy(tokenCode, startIndex, copyLine, 0, copyLine.Length);
+                    lines.Add(copyLine);
+                    startIndex = endIndex + 1;
                 }
+            }
+            endIndex = tokenCode.Length;
+            copyLine = new Token[endIndex - startIndex];
+            Array.Copy(tokenCode, startIndex, copyLine, 0, copyLine.Length);
+            lines.Add(copyLine);
 
-                if (type != null)
+            //Instantiate expressions
+            foreach (Token[] line in lines)
+            {
+                try
                 {
-                    if (tokenCode[i].TokenType == TokenType.Word)
+                    bool wasLastWord = false;
+                    int expressionSignatureIndex = 0;
+                    int equateIndex = 0;
+
+                    //Finding points to split at for type signature, expression signature, and expression definition
+                    for (int i = 0; i < line.Length; i++)
                     {
-                        myExpression.Identifier = tokenCode[i].Code;
-                        i++;
-
-                        if (tokenCode[i].TokenType == TokenType.Equate)
+                        if (expressionSignatureIndex == 0)
                         {
-                            i++;
-
-                            if (tokenCode[i].TokenType == TokenType.Operand)
+                            if (line[i].TokenType == TokenType.Word)
                             {
-                                var converter = TypeDescriptor.GetConverter(type);
-                                try
+                                if (wasLastWord)
                                 {
-                                    myExpression.Value = converter.ConvertFrom(tokenCode[i].Code);
-                                    myExpressions.Add(myExpression);
-                                    codeMatched[i] = true;
+                                    expressionSignatureIndex = i;
                                 }
-                                catch { }
+                                else
+                                {
+                                    wasLastWord = true;
+                                }
+                            }
+                            else if (line[i].TokenType != TokenType.Bracket)
+                            {
+                                wasLastWord = false;
+                            }
+                        }
+                        else if (equateIndex == 0)
+                        {
+                            if (line[i].TokenType == TokenType.Equate)
+                            {
+                                equateIndex = i;
+                                break;
                             }
                         }
                     }
-                }
 
-                i++;
+                    if (expressionSignatureIndex == 0)
+                    {
+                        throw new PaskellCompileException("No signature for expression given", line.Length);
+                    }
+                    if (equateIndex == 0)
+                    {
+                        throw new PaskellCompileException("Expression not set to anything", line.Length);
+                    }
+
+                    //Getting type signature and expression signature
+                    Token[] subTokens = new Token[expressionSignatureIndex];
+                    Array.Copy(line, 0, subTokens, 0, subTokens.Length);
+                    TypeSignature typeSignature = ConstructTypeSignature(subTokens);
+
+                    subTokens = new Token[equateIndex - expressionSignatureIndex];
+                    Array.Copy(line, expressionSignatureIndex, subTokens, 0, subTokens.Length);
+                    if (subTokens.Length == 0 || subTokens[0].TokenType != TokenType.Word)
+                    {
+                        throw new PaskellCompileException("Expected expression identifier", expressionSignatureIndex);
+                    }
+                    PExpression pExpression = new PExpression(typeSignature, subTokens[0].Code);
+                    Expressions.Add(pExpression);
+                }
+                catch (PaskellCompileException e)
+                {
+
+                }
             }
 
-            Context = new PContext(myExpressions.ToArray());
+            Context =  new PContext(Expressions.ToArray());
+            return null;
+        }
 
-            if (codeMatched.Any(element => element == false))
+        private static TypeSignature ConstructTypeSignature(Token[] tokenCode)
+        {
+            int bracketNesting = 0;
+            int bracketStartIndex = 0;
+            int bracketEndIndex = 0;
+            int functionMapIndex = 0;
+
+            TypeSignature typeSignature = null;
+            TypeSignature left = null;
+            bool isFunction = false;
+
+            if (tokenCode.Length == 0)
             {
-                returnState = new ParserReturnState(false);
-                for (int i = 0; i < codeMatched.Length; i++)
+                throw new PaskellCompileException("Expected type", 0);
+            }
+
+            for (int i = 0; i < tokenCode.Length; i++)
+            {
+                Token token = tokenCode[i];
+                if (token.TokenType == TokenType.Bracket)
                 {
-                    if (codeMatched[i] == false)
+                    if (token.Code == "(")
                     {
-                        returnState.Errors.Push(new ParserReturnErrorInfo(ParserReturnError.BadIdentifier, i));
+                        if (bracketNesting == 0)
+                        {
+                            bracketStartIndex = i + 1;
+                        }
+                        bracketNesting++;
+                    }
+                    else
+                    {
+                        if (bracketNesting == 0)
+                        {
+                            throw new PaskellCompileException("Unexpected bracket", i);
+                        }
+                        else
+                        {
+                            bracketEndIndex = i;
+                            bracketNesting--;
+                        }
+                    }
+                }
+                else if (bracketNesting == 0)
+                {
+                    if (token.TokenType == TokenType.FunctionMap)
+                    {
+                        isFunction = true;
+                        functionMapIndex = i;
+                        if (bracketEndIndex == 0)
+                        {
+                            bracketEndIndex = i;
+                        }
+                        Token[] newTokenCode = new Token[bracketEndIndex - bracketStartIndex];
+                        Array.Copy(tokenCode, bracketStartIndex, newTokenCode, 0, newTokenCode.Length);
+                        try
+                        {
+                            left = ConstructTypeSignature(newTokenCode);
+                        }
+                        catch (PaskellCompileException e)
+                        {
+                            throw new PaskellCompileException(e.ErrorMessage, e.Index + bracketStartIndex);
+                        }
+                        break;
                     }
                 }
             }
-            else
+
+            if (bracketNesting > 0)
             {
-                returnState = new ParserReturnState(true);
+                throw new PaskellCompileException("Expected bracket", tokenCode.Length - 1);
             }
 
-            return returnState;
+            if (isFunction)
+            {
+                Token[] newTokenCode = new Token[tokenCode.Length - functionMapIndex - 1];
+                Array.Copy(tokenCode, functionMapIndex + 1, newTokenCode, 0, newTokenCode.Length);
+                try
+                {
+                    typeSignature = new TypeSignature(left, ConstructTypeSignature(newTokenCode));
+                }
+                catch (PaskellCompileException e)
+                {
+                    throw new PaskellCompileException(e.ErrorMessage, e.Index + functionMapIndex + 1);
+                }
+
+            }
+            else
+            {
+                if (bracketEndIndex != 0)
+                {
+                    Token[] newTokenCode = new Token[tokenCode.Length - 2];
+                    Array.Copy(tokenCode, 1, newTokenCode, 0, newTokenCode.Length);
+                    typeSignature = ConstructTypeSignature(newTokenCode);
+                }
+                else if (tokenCode.Length > 1)
+                {
+                    throw new PaskellCompileException("Too many expressions", 0);
+                }
+                else
+                {
+                    if (tokenCode[0].TokenType != TokenType.Word)
+                    {
+                        throw new PaskellCompileException("Expected type", 0);
+                    }
+                    foreach (OperandType operandType in Enum.GetValues(typeof(OperandType)))
+                    {
+                        if (tokenCode[0].Code == operandType.ToString())
+                        {
+                            typeSignature = new TypeSignature(operandType.GetPType());
+                            break;
+                        }
+                    }
+                    if (typeSignature == null)
+                    {
+                        throw new PaskellCompileException("Invalid type", 0);
+                    }
+                }
+            }
+
+            return typeSignature;
         }
 
-        //public static FunctionDefinition[] Compile(string sourceCode)
+        //private static ParserReturnState Compiles(Token[] tokenCode, out PContext Context)
         //{
-        //    FunctionDefinition[] functions = new FunctionDefinition[1];
-        //    functions[0] = new FunctionDefinition();
-        //    List<SymbolicLong> code = new List<SymbolicLong>();
+        //    List<PExpression> myExpressions = new List<PExpression>();
+        //    bool[] codeMatched = new bool[tokenCode.Length];
+        //    ParserReturnState returnState;
 
-        //    for (int i = 0; i < sourceCode.Length; /*Increments handled within loop*/)
+        //    codeMatched.Populate(false, 0, tokenCode.Length);
+
+        //    for (int i = 0; i < tokenCode.Length; /*Increment handled inside of loop*/)
         //    {
-        //        string functionName;
-        //        List<string> parameters = new List<string>();
+        //        ParserState parserState = ParserState.TypeSignature;
 
-        //        ParserState state = ParserState.Global;
-        //        while (String.IsNullOrWhiteSpace(sourceCode[i].ToString())) i++;
+        //        PExpression myExpression;
+        //        TypeSignature typeSignature;
+        //        bool isFunction = false;
+        //        Type type = null;
 
-        //        while()
+        //        if (tokenCode[i].TokenType == TokenType.Word)
+        //        {
+        //            foreach (OperandType operandType in Enum.GetValues(typeof(OperandType)))
+        //            {
+        //                if (tokenCode[i].Code == operandType.ToString())
+        //                {
+        //                    type = operandType.GetPType();
+        //                    codeMatched[i] = true;
+        //                    i++;
+        //                    break;
+        //                }
+        //            }
+        //        }
+
+        //        if (type != null)
+        //        {
+        //            if (tokenCode[i].TokenType == TokenType.Word)
+        //            {
+        //                myExpression.Identifier = tokenCode[i].Code;
+        //                i++;
+
+        //                if (tokenCode[i].TokenType == TokenType.Equate)
+        //                {
+        //                    i++;
+
+        //                    if (tokenCode[i].TokenType == TokenType.Operand)
+        //                    {
+        //                        var converter = TypeDescriptor.GetConverter(type);
+        //                        try
+        //                        {
+        //                            myExpression.Value = converter.ConvertFrom(tokenCode[i].Code);
+        //                            myExpressions.Add(myExpression);
+        //                            codeMatched[i] = true;
+        //                        }
+        //                        catch { }
+        //                    }
+        //                }
+        //            }
+        //        }
+
+        //        i++;
         //    }
 
-        //    return;
+        //    Context = new PContext(myExpressions.ToArray());
+
+        //    if (codeMatched.Any(element => element == false))
+        //    {
+        //        returnState = new ParserReturnState(false);
+        //        for (int i = 0; i < codeMatched.Length; i++)
+        //        {
+        //            if (codeMatched[i] == false)
+        //            {
+        //                returnState.Errors.Push(new ParserReturnErrorInfo(ParserReturnError.BadIdentifier, i));
+        //            }
+        //        }
+        //    }
+        //    else
+        //    {
+        //        returnState = new ParserReturnState(true);
+        //    }
+
+        //    return returnState;
         //}
+
+        private static PExpression Add(Stack<PExpression> a)
+        {
+            var result = a.Pop().Evaluate().Value + a.Pop().Evaluate().Value;
+            return new PExpression(result, "result");
+        }
+
+        private static PExpression IfThenElse(Stack<PExpression> a)
+        {
+            bool comparison = a.Pop().Evaluate().Value;
+            PExpression ifTrue = a.Pop();
+            PExpression ifFalse = a.Pop();
+            if (comparison)
+            {
+                return ifTrue;
+            }
+            else
+            {
+                return ifFalse;
+            }
+        }
     }
 
     //https://stackoverflow.com/questions/479410/enum-tostring-with-user-friendly-strings
@@ -242,9 +478,11 @@ namespace Parse
     public class TypeSignature
     {
         public bool IsFunction { get; }
-        public Type Type;                   // --Used if IsFunction is false
-        public TypeSignature Parameter;     // --Used if IsFunction is true
-        public TypeSignature Return;        // _/
+        public Type Type { get; }                   // --Used if IsFunction is false
+        public TypeSignature Parameter { get; }     // --Used if IsFunction is true
+        public TypeSignature Return { get; }        // _/
+
+        public dynamic Value => ToString(); //Mostly for debug purposes
 
         //Instantiates type signature of a variable, unspecified type
         public TypeSignature()
@@ -266,38 +504,11 @@ namespace Parse
             Parameter = parameter;
             Return = returnt;
         }
-    }
 
-    public struct FunctionDefinition
-    {
-        public ulong CallHash;
-        public OperandType InputType;
-        public OperandType OutputType;
-        public SymbolicLong[] SymbolicCode;
-    }
-
-    public struct SymbolicLong
-    {
-        public ulong CodeLong { get; private set; } //Custom getters and setters need to be written, both directly changing other SymbolicLong properties representing the code
-
-        public bool IsFunctionCall;
-        public OperandType OperandType;
-        public int ArrayLength;
-        public bool IsArrayElement;
-
-        public SymbolicLong(ulong uulong)
+        public string ToString(bool brackets = true)
         {
-            CodeLong = uulong;
-
-            //Gonna have to remove these later
-            IsFunctionCall = false;
-            OperandType = OperandType.Int;
-            ArrayLength = 0;
-            IsArrayElement = false;
+            return IsFunction ? $"{(brackets ? "(" : "")}{Parameter.ToString()} -> {Return.ToString(false)}{(brackets ? ")" : "")}" : (Type != null ? Type.ToString() : "_");
         }
-
-        public static implicit operator ulong(SymbolicLong s) => s.CodeLong;
-        public static explicit operator SymbolicLong(ulong u) => new SymbolicLong(u);
     }
 
     public class PContext
@@ -310,100 +521,100 @@ namespace Parse
         }
     }
 
-    public class PFunction
-    {
-        public OperandType ArgumentType;
-
-        public PFunction Evaluate(object arg)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
     public class PExpression
     {
-        private TypeSignature TypeSignature;
-        public string Identifier;
+        public string Identifier { get; protected set; }
         public dynamic Value { get; private set; }
-        public Queue<PExpression> SubExpressions;
-        public bool IsParameter = false;
-        public int ParameterIndex;
-        public bool Evaluated = false;
-        public bool Definition = true;
+        public TypeSignature TypeSignature { get; protected set; }
 
-        private PExpressionType Type = PExpressionType.Definition;
+        protected Stack<(PExpression, int)> SubExpressions { get; }
 
-        public bool IsBaseExpression = false;
-        public int ArgumentCount = 0;
-        public Queue<PExpression> Arguments = new Queue<PExpression>();
-        public Func<Queue<PExpression>, PExpression> Function;
+        private readonly bool isParamater = false;
+        private int parameterIndex;
 
-        protected PExpression()
-        {
-            Definition = false;
-            Type = PExpressionType.WorkedExpression;
-        }
+        private PExpressionType type = PExpressionType.Definition;
+
+        private readonly bool isBaseExpression = false;
+        private readonly int argumentCount = 0;
+        private readonly Stack<PExpression> arguments;
+        private readonly Func<Stack<PExpression>, PExpression> function;
 
         //Instantiates expression representing data value
-        public PExpression(dynamic value, string identifier = "")
+        public PExpression(dynamic value, string identifier)
         {
             Identifier = identifier;
             Value = value;
-            Evaluated = true;
-            Type = PExpressionType.Evaluated;
+            type = PExpressionType.Evaluated;
             TypeSignature = new TypeSignature(value.GetType());
         }
 
         //Instatiates base function definition
-        public PExpression(Func<Queue<PExpression>, PExpression> function, TypeSignature typeSignature, int argumentCount, string identifier = "")
+        public PExpression(Func<Stack<PExpression>, PExpression> function, TypeSignature typeSignature, int argumentCount, string identifier = "")
         {
             Identifier = identifier;
             TypeSignature = typeSignature;
-            ArgumentCount = argumentCount;
-            IsBaseExpression = true;
-            Function = function;
+            arguments = new Stack<PExpression>();
+            this.argumentCount = argumentCount;
+            isBaseExpression = true;
+            this.function = function;
         }
 
         //Instantiates function definition (function should be constructed using SubExpressions queue instantiated here)
-        public PExpression(string identifier = "")
+        public PExpression(TypeSignature typeSignature, string identifier = "")
         {
             Identifier = identifier;
-            SubExpressions = new Queue<PExpression>();
+            TypeSignature = typeSignature;
+            SubExpressions = new Stack<(PExpression, int)>();
         }
 
         //Instantiates paramater of function (would be added to SubExpressions queue of function definition)
         public PExpression(int parameterIndex)
         {
-            IsParameter = true;
-            Type = PExpressionType.Parameter;
-            ParameterIndex = parameterIndex;
+            isParamater = true;
+            this.parameterIndex = parameterIndex;
+        }
+
+        public void PushSubExpression(PExpression subExpression, int argumentCount)
+        {
+            SubExpressions.Push((subExpression, argumentCount));
         }
 
         public PExpression Evaluate()
         {
-            if (!TypeSignature.IsFunction)
+            if (type == PExpressionType.Evaluated)
             {
-                if (Type == PExpressionType.Evaluated)
-                {
-                    return this;
-                }
-                //Doesn't matter here if the expression is a definition, as it is a proper value that once evaluated once can remain as such
-                //and be used in multiple places without re-evaluating the expression
-                else
-                {
-                    PExpression workingExpression = SubExpressions.Dequeue();
-                    while (SubExpressions.Count > 0)
-                    {
-                        workingExpression = workingExpression.Evaluate(SubExpressions.Dequeue());
-                    }
-
-                    workingExpression.Evaluated = true;
-                    return workingExpression;
-                }
+                return this;
             }
+            //Doesn't matter here if the expression is a definition and doesn't need to be cloned, as it is a separately defined expression that
+            //once evaluated can remain as an evaluated expression or definition and be used in multiple places without being re-evaluated
             else
             {
-                throw new InvalidOperationException("Trying to evaluate function which doesn't return a proper value");
+                Stack<PExpression> tempStack = new Stack<PExpression>();
+                while (SubExpressions.Count > 0)
+                {
+                    (PExpression, int) workingExpressionTuple = SubExpressions.Pop();
+                    PExpression workingExpression = workingExpressionTuple.Item1;
+                    if (workingExpressionTuple.Item2 > 0)
+                    {
+                        for (int i = 0; i < workingExpressionTuple.Item2; i++)
+                        {
+                            workingExpression = workingExpression.Evaluate(tempStack.Pop());
+                        }
+                    }
+                    tempStack.Push(workingExpression);
+                }
+
+                PExpression result = tempStack.Pop();
+
+                if (!result.TypeSignature.IsFunction)
+                {
+                    result.type = PExpressionType.Evaluated;
+                }
+                else
+                {
+                    result.type = PExpressionType.Definition;
+                }
+                return result;
             }
         }
 
@@ -411,65 +622,102 @@ namespace Parse
         {
             //Important here however if that the expression is an definition, it remains unchanged and a new instance
             //of the class is created as the worked expression, protecting the function definition
-            if (Type == PExpressionType.Definition)
+            PExpression workedExpression = CloneWorkedExpression();     //Only clones if not already worked expression (handled within method)
+            if (!isBaseExpression)
             {
-                PExpression workedExpression = new PExpression();
-
-            }
-            if (!IsBaseExpression)
-            {
-                for (int i = 0; i < SubExpressions.Count; i++)
+                if (type != PExpressionType.Definition)
                 {
-                    PExpression expression = SubExpressions.Dequeue();
-                    if (expression.IsParameter)
+                    Stack<(PExpression, int)> tempStack = new Stack<(PExpression, int)>();
+                    while (workedExpression.SubExpressions.Count > 0)
                     {
-                        if (expression.ParameterIndex == 0)
+                        (PExpression, int) expression = workedExpression.SubExpressions.Pop();
+                        if (expression.Item1.isParamater)
                         {
-                            expression = argument;
+                            if (expression.Item1.parameterIndex == 0)
+                            {
+                                expression.Item1 = argument;
+                            }
+                            else
+                            {
+                                expression.Item1.parameterIndex--;
+                            }
                         }
-                        else
-                        {
-                            expression.ParameterIndex--;
-                        }
+                        tempStack.Push(expression);
                     }
-                    SubExpressions.Enqueue(expression);
+                    while (tempStack.Count > 0)
+                    {
+                        workedExpression.SubExpressions.Push(tempStack.Pop());
+                    }
+                    workedExpression.TypeSignature = workedExpression.TypeSignature.Return;
                 }
 
-                TypeSignature = TypeSignature.Return;
-                if (!TypeSignature.IsFunction)
+                if (!workedExpression.TypeSignature.IsFunction)
                 {
-                    PExpression returnValue = Evaluate();
-                    return returnValue;
+                    workedExpression = workedExpression.Evaluate();
                 }
 
-                return this;
+                return workedExpression;
             }
             else
             {
-                PExpression returnValue;
-                Arguments.Enqueue(argument);
-                TypeSignature = TypeSignature.Return;
-                if (Arguments.Count == ArgumentCount)
+                workedExpression.arguments.Push(argument);
+                workedExpression.TypeSignature = workedExpression.TypeSignature.Return;
+                if (workedExpression.arguments.Count == workedExpression.argumentCount)
                 {
-                    Queue<PExpression> arguments = new Queue<PExpression>();
-                    foreach (var expression in Arguments)
+                    Stack<PExpression> arguments = new Stack<PExpression>();
+                    while (workedExpression.arguments.Count > 0)
                     {
-                        arguments.Enqueue(expression);
+                        arguments.Push(workedExpression.arguments.Pop());
                     }
-                    PExpression result = Function(arguments);
-                    if (!TypeSignature.IsFunction)
-                    {
-                        result = result.Evaluate();
-                    }
-                    return result;
+                    PExpression result = function(arguments);
+                    //if (!result.TypeSignature.IsFunction)
+                    //{
+                    //    result = result.Evaluate();
+                    //}
+                    workedExpression = result;
+                }
+
+                return workedExpression;
+            }
+        }
+
+        protected PExpression CloneWorkedExpression()
+        {
+            PExpression workedExpression;
+
+            if (type == PExpressionType.Definition)
+            {
+                if (isParamater)
+                {
+                    workedExpression = new PExpression(parameterIndex);
+                }
+                else if (isBaseExpression)
+                {
+                    workedExpression = new PExpression(function, TypeSignature, argumentCount, Identifier);
                 }
                 else
                 {
-                    returnValue = this;
+                    workedExpression = new PExpression(TypeSignature, Identifier);
+                    Stack<(PExpression, int)> tempStack = new Stack<(PExpression, int)>();
+                    while (SubExpressions.Count > 0)
+                    {
+                        tempStack.Push(SubExpressions.Pop());
+                    }
+                    while (tempStack.Count > 0)
+                    {
+                        var subExpression = tempStack.Pop();
+                        workedExpression.SubExpressions.Push((subExpression.Item1.CloneWorkedExpression(), subExpression.Item2));
+                        SubExpressions.Push(subExpression);
+                    }
                 }
-
-                return returnValue;
+                workedExpression.type = PExpressionType.WorkedExpression;
             }
+            else
+            {
+                workedExpression = this;
+            }
+
+            return workedExpression;
         }
     }
 
@@ -518,17 +766,18 @@ namespace Parse
         Equate,
         [RegexPattern("->")]
         FunctionMap,
-        [RegexPattern(@"(?!true|false)((?<=\s)|^)[A-Za-z][A-Za-z0-9]*")]
+        [RegexPattern(@"(?!true|false)((?<=(\s|\(|\)))|^)[A-Za-z][A-Za-z0-9]*")]
         Word,
         [RegexPattern(@"((?<=\s)|^)(([0-9]+(\.[0-9]+)?)|('.')|true|false)(?![A-Za-z0-9]|\.)")]
         Operand,
-        [RegexPattern(";")]
-        Semicolon
+        [RegexPattern(@"(?<!\\)\n")]
+        LineBreak
     }
 
     enum ParserState
     {
-        Declaration,
+        TypeSignature,
+        ExpressionSignature,
         Definition
     }
 
@@ -548,21 +797,32 @@ namespace Parse
     {
         Definition,
         WorkedExpression,
-        Parameter,
         Evaluated
     }
 
     public class PaskellRuntimeException : Exception
     {
         public new PaskellRuntimeException InnerException;
-        public PFunction PFunction;
+        public PExpression PExpression;
         public string ErrorMessage;
 
-        public PaskellRuntimeException(string errorMessage, PFunction pFunction, PaskellRuntimeException innerException = null)
+        public PaskellRuntimeException(string errorMessage, PExpression pExpression, PaskellRuntimeException innerException = null)
         {
             ErrorMessage = errorMessage;
-            PFunction = pFunction;
+            PExpression = pExpression;
             InnerException = innerException;
+        }
+    }
+
+    public class PaskellCompileException : Exception
+    {
+        public int Index;
+        public string ErrorMessage;
+
+        public PaskellCompileException(string errorMessage, int index)
+        {
+            ErrorMessage = errorMessage;
+            Index = index;
         }
     }
 }
