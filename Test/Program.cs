@@ -12,7 +12,7 @@ namespace Test
     {
         static void Main(string[] args)
         {
-            ParserReturnState result = Translator.CallMe("(Int -> Int) werk bitch = asd\nChar thisthat = 1");
+            Translator.CallMe("Int -> Int MyAdd a = Add 3 a\nBool -> Int MyIf a = MyAdd (IfThenElse a 1 2)\nInt main = MyAdd false");
         }
     }
 }
