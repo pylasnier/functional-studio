@@ -398,7 +398,7 @@ namespace IDE
                 format.bUnderlineType = 0;
                 SendMessage(TextBox.TextHandle, EM_SETCHARFORMAT, (IntPtr) SCF_SELECTION, ref format);
 
-                var parserReturn = Translator.CallMe(TextBox.Text);
+                var parserReturn = new ParserReturnState();
 
                 if (!parserReturn.Success)
                 {

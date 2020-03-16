@@ -99,6 +99,14 @@ namespace IDE
         private void OnTextChanged(object sender, EventArgs e)
         {
             UpdateLineNumbers();
+            if (vScrollBar.Enabled && textBox.GetLineFromCharIndex(SelectionStart) - vScrollBar.Value / (LineCount + Height / Font.Height) > Height / Font.Height)
+            {
+                vScrollBar.Value = (textBox.GetLineFromCharIndex(SelectionStart) + Height / Font.Height) * (LineCount + Height / Font.Height);
+            }
+            else if (vScrollBar.Enabled && textBox.GetLineFromCharIndex(SelectionStart) - vScrollBar.Value / (LineCount + Height / Font.Height) < 0)
+            {
+                vScrollBar.Value = textBox.GetLineFromCharIndex(SelectionStart) * (LineCount + Height / Font.Height);
+            }
         }
 
         //private void OnScroll(object sender, ScrollEventArgs e)
