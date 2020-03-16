@@ -324,26 +324,6 @@ namespace Parse
             }
         }
 
-        public bool ContainsGenericTypeSignatures
-        {
-            get
-            {
-                if (IsFunction)
-                {
-                    return Parameter.ContainsGenericTypeSignatures || Return.ContainsGenericTypeSignatures;
-                }
-                else if (!IsFunction && Type == null)
-                {
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-
-            }
-        }
-
         public TypeSignature this[int i]
         {
             get
@@ -380,9 +360,16 @@ namespace Parse
                 {
                     return Parameter == typeSignature.Parameter && Return == typeSignature.Return;
                 }
-                else if (!IsFunction && !typeSignature.IsFunction && Type != null)
+                else if (!IsFunction && !typeSignature.IsFunction)
                 {
-                    return Type == typeSignature.Type;
+                    if (Type == null || typeSignature.Type == null)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return Type == typeSignature.Type;
+                    }
                 }
                 else
                 {
@@ -401,7 +388,7 @@ namespace Parse
             return !(t1 == t2);
         }
 
-        //Instantiates generic type signature, unspecified type
+        //Instantiates generic variable type
         public TypeSignature()
         {
             IsFunction = false;

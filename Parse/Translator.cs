@@ -23,8 +23,7 @@ using Utility;
 
         public static Queue<TokeniserReturnError> GetTokeniserErrors(string sourceCode)
         {
-            Token[] dummy;
-            return Tokenise(sourceCode, out dummy).Errors;
+            return Tokenise(sourceCode, out _).Errors;
         }
 
         public static CompilerReturnState Compile(string sourceCode, out PContext context)
@@ -203,7 +202,7 @@ using Utility;
                         }
                         catch (PaskellCompileException e)
                         {
-                            throw new PaskellCompileException(e.ErrorMessage + line.divisions.expressionSignatureIndex, e.Index, i);
+                            throw new PaskellCompileException(e.ErrorMessage, e.Index, i);
                         }
 
                         subLine = new Token[line.divisions.equateIndex - line.divisions.expressionSignatureIndex];
@@ -268,14 +267,14 @@ using Utility;
                         }
                         else
                         {
-                            if (parameterCount >= expression.TypeSignature.ArgumentCount)
-                            {
-                                throw new PaskellCompileException("Unexpected token", line.divisions.expressionSignatureIndex + j, i);
-                            }
-                            else
+                            if (parameterCount < expression.TypeSignature.ArgumentCount)
                             {
                                 parameters.Add(new PExpression(parameterCount, expression.TypeSignature[parameterCount].Parameter, subLine[j].Code));
                                 parameterCount++;
+                            }
+                            else
+                            {
+                                throw new PaskellCompileException("Unexpected token", line.divisions.expressionSignatureIndex + j, i);
                             }
                         }
                     }
@@ -422,7 +421,7 @@ using Utility;
                 }
                 else if (tokenCode.Length > 1)
                 {
-                    throw new PaskellCompileException("Too many expressions in type signature", 0);
+                    throw new PaskellCompileException("Too many tokens in type signature", 0);
                 }
                 else
                 {
@@ -448,7 +447,279 @@ using Utility;
             return typeSignature;
         }
 
-        private static void PushSubExpressions(Token[] tokenCode, List<PExpression> expressions, TypeSignature targetTypeSignature,
+        private static TypeSignature PushSubExpressions(Token[] tokenCode, List<PExpression> expressions, TypeSignature targetTypeSignature,
+                                                            PExpression outExpression, Stack<ConditionSpecifier> conditionSpecifiers = null, bool typeSignatureMustMatch = false)
+        {
+            int bracketNesting = 0;
+            int bracketStartIndex = 0;
+
+            int conditionNesting = 0;
+            int clauseStartIndex = 0;
+
+            int argumentCount = 0;
+
+            TypeSignature baseTypeSignature = null;
+            TypeSignature expectedTypeSignature = targetTypeSignature;      //Only for arguments of base subexpressions or literal values
+
+            if (conditionSpecifiers == null)
+            {
+                conditionSpecifiers = new Stack<ConditionSpecifier>();
+            }
+
+            for (int i = 0; i < tokenCode.Length; i++)
+            {
+                Token token = tokenCode[i];
+                if (token.TokenType == TokenType.FunctionMap || token.TokenType == TokenType.Equate)
+                {
+                    throw new PaskellCompileException("Unexpected token", i);
+                }
+
+                if (baseTypeSignature != null)
+                {
+                    if (argumentCount < baseTypeSignature.ArgumentCount)
+                    {
+                        expectedTypeSignature = baseTypeSignature[argumentCount].Parameter;
+                    }
+                    else
+                    {
+                        throw new PaskellCompileException("Unexpected token", i);
+                    }
+                }
+
+                if (token.TokenType == TokenType.Bracket && conditionNesting == 0)
+                {
+                    if (token.Code == "(")
+                    {
+                        if (bracketNesting == 0)
+                        {
+                            bracketStartIndex = i + 1;
+                        }
+                        bracketNesting++;
+                    }
+                    else
+                    {
+                        if (bracketNesting == 0)
+                        {
+                            throw new PaskellCompileException("Unexpected bracket", i);
+                        }
+                        else
+                        {
+                            bracketNesting--;
+
+                            if (bracketNesting == 0)
+                            {
+                                Token[] newTokenCode = new Token[i - bracketStartIndex];
+                                Array.Copy(tokenCode, bracketStartIndex, newTokenCode, 0, newTokenCode.Length);
+                                try
+                                {
+                                    if (baseTypeSignature == null)
+                                    {
+                                        baseTypeSignature = PushSubExpressions(newTokenCode, expressions, targetTypeSignature, outExpression, conditionSpecifiers);
+                                    }
+                                    else
+                                    {
+                                        PushSubExpressions(newTokenCode, expressions, expectedTypeSignature, outExpression, conditionSpecifiers, true);
+                                        argumentCount++;
+                                    }
+                                }
+                                catch (PaskellCompileException e)
+                                {
+                                    throw new PaskellCompileException(e.ErrorMessage, e.Index + bracketStartIndex);
+                                }
+
+                                argumentCount++;
+                            }
+                        }
+                    }
+                }
+                else if (token.TokenType == TokenType.ConditionStatement && bracketNesting == 0)
+                {
+                    if (token.Code == "if")
+                    {
+                        if (conditionNesting == 0)
+                        {
+                            conditionNesting = 1;
+                            clauseStartIndex = i + 1;
+                            conditionSpecifiers.Push(ConditionSpecifier.Condition);
+                        }
+                        else
+                        {
+                            conditionNesting++;
+                        }
+                    }
+                    else if (conditionNesting == 1 && conditionSpecifiers.Peek() == ConditionSpecifier.Condition && token.Code == "then")
+                    {
+                        Token[] newTokenCode = new Token[i - clauseStartIndex];
+                        Array.Copy(tokenCode, clauseStartIndex, newTokenCode, 0, newTokenCode.Length);
+
+                        try
+                        {
+                            PushSubExpressions(newTokenCode, expressions, new TypeSignature(typeof(bool)), outExpression, conditionSpecifiers, true);
+                        }
+                        catch (PaskellCompileException e)
+                        {
+                            throw new PaskellCompileException(e.ErrorMessage, e.Index + clauseStartIndex);
+                        }
+
+                        clauseStartIndex = i + 1;
+                        conditionSpecifiers.Pop();
+                        conditionSpecifiers.Push(ConditionSpecifier.IfTrue);
+                    }
+                    else if (conditionNesting == 1 && conditionSpecifiers.Peek() == ConditionSpecifier.IfTrue && token.Code == "else")
+                    {
+                        Token[] newTokenCode = new Token[i - clauseStartIndex];
+                        Array.Copy(tokenCode, clauseStartIndex, newTokenCode, 0, newTokenCode.Length);
+
+                        try
+                        {
+                            if (baseTypeSignature == null)
+                            {
+                                baseTypeSignature = PushSubExpressions(newTokenCode, expressions, targetTypeSignature, outExpression, conditionSpecifiers);
+                            }
+                            else
+                            {
+                                PushSubExpressions(newTokenCode, expressions, expectedTypeSignature, outExpression, conditionSpecifiers, true);
+                                //Doesn't increment argumentCount here as the else clause must be compiled first
+                            }
+                        }
+                        catch (PaskellCompileException e)
+                        {
+                            throw new PaskellCompileException(e.ErrorMessage, e.Index + clauseStartIndex);
+                        }
+
+                        clauseStartIndex = i + 1;
+                        conditionSpecifiers.Pop();
+                        conditionSpecifiers.Push(ConditionSpecifier.IfFalse);
+                    }
+                    else if (token.Code == "endif")
+                    {
+                        if (conditionNesting == 1 && conditionSpecifiers.Peek() == ConditionSpecifier.IfFalse)
+                        {
+                            Token[] newTokenCode = new Token[i - clauseStartIndex];
+                            Array.Copy(tokenCode, clauseStartIndex, newTokenCode, 0, newTokenCode.Length);
+
+                            try
+                            {
+                                if (baseTypeSignature == null)
+                                {
+                                    TypeSignature ifFalseTypeSignature = PushSubExpressions(newTokenCode, expressions, targetTypeSignature, outExpression, conditionSpecifiers);
+                                    if (ifFalseTypeSignature != baseTypeSignature)
+                                    {
+                                        throw new PaskellCompileException("Both clauses in if block don't match type signature", clauseStartIndex);
+                                    }
+                                }
+                                else
+                                {
+                                    PushSubExpressions(newTokenCode, expressions, expectedTypeSignature, outExpression, conditionSpecifiers, true);
+                                    argumentCount++;
+                                }
+                            }
+                            catch (PaskellCompileException e)
+                            {
+                                throw new PaskellCompileException(e.ErrorMessage, e.Index + clauseStartIndex);
+                            }
+
+                            conditionSpecifiers.Pop();
+                            conditionNesting--;
+                        }
+                        else if (conditionNesting > 1)
+                        {
+                            conditionNesting--;
+                        }
+                    }
+                }
+                else if (bracketNesting == 0 && conditionNesting == 0)
+                {
+                    if (token.TokenType == TokenType.Word)
+                    {
+                        PExpression expression;
+                        PExpression[] results = expressions.Where(x => x.Identifier == token.Code).ToArray();
+                        if (results.Length != 1)
+                        {
+                            throw new PaskellCompileException($"No unique definition for expression {tokenCode[i].Code}", i);
+                        }
+                        else
+                        {
+                            expression = results[0];
+                        }
+
+                        if (baseTypeSignature == null)
+                        {
+                            baseTypeSignature = expression.TypeSignature;
+                            if (baseTypeSignature[baseTypeSignature.ArgumentCount - targetTypeSignature.ArgumentCount] != targetTypeSignature)
+                            {
+                                throw new PaskellCompileException($"Expression must be of type {targetTypeSignature.Value}", i);
+                            }
+                            else
+                            {
+                                outExpression.PushSubExpression(expression, baseTypeSignature.ArgumentCount - targetTypeSignature.ArgumentCount, new Stack<ConditionSpecifier>(conditionSpecifiers));
+                            }
+                        }
+                        else
+                        {
+                            if (expression.TypeSignature != argumentTypeSignature)
+                            {
+                                throw new PaskellCompileException($"Expression must be of type {argumentTypeSignature.Value}", i);
+                            }
+                            else
+                            {
+                                outExpression.PushSubExpression(expression, 0, new Stack<ConditionSpecifier>(conditionSpecifiers));
+                                argumentCount++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (!argumentTypeSignature.IsFunction)
+                        {
+                            try
+                            {
+                                dynamic variable = null;
+                                if (argumentTypeSignature.Type != null)
+                                {
+                                    TypeConverter converter = TypeDescriptor.GetConverter(argumentTypeSignature.Type);
+                                    variable = converter.ConvertFromString(token.Code);
+                                }
+                                else
+                                {
+                                    bool success = false;
+                                    foreach (OperandType operandType in Enum.GetValues(typeof(OperandType)))
+                                    {
+                                        try
+                                        {
+                                            TypeConverter converter = TypeDescriptor.GetConverter(operandType.GetPType());
+                                            variable = converter.ConvertFromString(token.Code);
+                                            success = true;
+                                            break;
+                                        }
+                                        catch
+                                        {
+                                            success = false;
+                                        }
+                                    }
+                                    if (!success)
+                                    {
+                                        throw new PaskellCompileException("You messed up your code P", i);
+                                    }
+                                }
+                                outExpression.PushSubExpression(new PExpression(variable), 0, new Stack<ConditionSpecifier>(conditionSpecifiers));
+                                argumentCount++;
+                            }
+                            catch (Exception)
+                            {
+                                throw new PaskellCompileException($"Expected expression of type {argumentTypeSignature.Value}", i);
+                            }
+                        }
+                        else
+                        {
+                            throw new PaskellCompileException($"Expected expression of type {argumentTypeSignature.Value}", i);
+                        }
+                    }
+                }
+            }
+        }
+
+        private static TypeSignature PushSubExpressionsS(Token[] tokenCode, List<PExpression> expressions, TypeSignature targetTypeSignature,
                                                 PExpression outExpression, Stack<ConditionSpecifier> conditionSpecifiers = null)
         {
             int bracketNesting = 0;
@@ -474,7 +745,7 @@ using Utility;
             for (int i = 0; i < tokenCode.Length; i++)
             {
                 Token token = tokenCode[i];
-                if (token.TokenType != TokenType.Word && token.TokenType != TokenType.Operand && token.TokenType != TokenType.Bracket && token.TokenType != TokenType.ConditionStatement)
+                if (token.TokenType == TokenType.FunctionMap || token.TokenType == TokenType.Equate)
                 {
                     throw new PaskellCompileException("Unexpected token", i);
                 }
@@ -517,6 +788,7 @@ using Utility;
                                 Array.Copy(tokenCode, bracketStartIndex, newTokenCode, 0, newTokenCode.Length);
                                 try
                                 {
+                                    if (baseTypeSignature != null)
                                     PushSubExpressions(newTokenCode, expressions, argumentTypeSignature, outExpression, conditionSpecifiers);
                                 }
                                 catch (PaskellCompileException e)
@@ -582,26 +854,26 @@ using Utility;
                     }
                     else if (token.Code == "endif")
                     {
-                        if (conditionNesting != 0)
+                        if (conditionNesting == 1 && conditionSpecifiers.Peek() == ConditionSpecifier.IfFalse)
+                        {
+                            Token[] newTokenCode = new Token[i - clauseStartIndex];
+                            Array.Copy(tokenCode, clauseStartIndex, newTokenCode, 0, newTokenCode.Length);
+
+                            try
+                            {
+                                PushSubExpressions(newTokenCode, expressions, argumentTypeSignature, outExpression, conditionSpecifiers);
+                            }
+                            catch (PaskellCompileException e)
+                            {
+                                throw new PaskellCompileException(e.ErrorMessage, e.Index + clauseStartIndex);
+                            }
+
+                            conditionSpecifiers.Pop();
+                            conditionNesting--;
+                        }
+                        else if (conditionNesting > 1)
                         {
                             conditionNesting--;
-
-                            if (conditionNesting == 0 && conditionSpecifiers.Peek() == ConditionSpecifier.IfFalse)
-                            {
-                                Token[] newTokenCode = new Token[i - clauseStartIndex];
-                                Array.Copy(tokenCode, clauseStartIndex, newTokenCode, 0, newTokenCode.Length);
-
-                                try
-                                {
-                                    PushSubExpressions(newTokenCode, expressions, argumentTypeSignature, outExpression, conditionSpecifiers);
-                                }
-                                catch (PaskellCompileException e)
-                                {
-                                    throw new PaskellCompileException(e.ErrorMessage, e.Index + clauseStartIndex);
-                                }
-
-                                conditionSpecifiers.Pop();
-                            }
                         }
                     }
                 }
@@ -613,7 +885,7 @@ using Utility;
                         PExpression[] results = expressions.Where(x => x.Identifier == token.Code).ToArray();
                         if (results.Length != 1)
                         {
-                            throw new PaskellCompileException($"No unique definition for expression {tokenCode[i]}", i);
+                            throw new PaskellCompileException($"No unique definition for expression {tokenCode[i].Code}", i);
                         }
                         else
                         {
@@ -623,7 +895,7 @@ using Utility;
                         if (i == 0)
                         {
                             baseTypeSignature = expression.TypeSignature;
-                            if (!baseTypeSignature.ContainsGenericTypeSignatures && !targetTypeSignature.ContainsGenericTypeSignatures && baseTypeSignature[baseTypeSignature.ArgumentCount - targetTypeSignature.ArgumentCount] != targetTypeSignature)
+                            if (baseTypeSignature[baseTypeSignature.ArgumentCount - targetTypeSignature.ArgumentCount] != targetTypeSignature)
                             {
                                 throw new PaskellCompileException($"Expression must be of type {targetTypeSignature.Value}", i);
                             }
@@ -634,7 +906,7 @@ using Utility;
                         }
                         else
                         {
-                            if (!expression.TypeSignature.ContainsGenericTypeSignatures && !argumentTypeSignature.ContainsGenericTypeSignatures && expression.TypeSignature != argumentTypeSignature)
+                            if (expression.TypeSignature != argumentTypeSignature)
                             {
                                 throw new PaskellCompileException($"Expression must be of type {argumentTypeSignature.Value}", i);
                             }
@@ -652,7 +924,7 @@ using Utility;
                             try
                             {
                                 dynamic variable = null;
-                                if (!argumentTypeSignature.ContainsGenericTypeSignatures)
+                                if (argumentTypeSignature.Type != null)
                                 {
                                     TypeConverter converter = TypeDescriptor.GetConverter(argumentTypeSignature.Type);
                                     variable = converter.ConvertFromString(token.Code);
@@ -697,7 +969,7 @@ using Utility;
 
             if (bracketNesting > 0)
             {
-                throw new PaskellCompileException("Expected close bracket", tokenCode.Length);
+                throw new PaskellCompileException("Expected close bracket", tokenCode.Length - 1);
             }
             if (conditionNesting > 0)
             {
@@ -705,16 +977,29 @@ using Utility;
                 switch (conditionSpecifiers.Peek())
                 {
                     case ConditionSpecifier.Condition:
-                        statement = "Then";
+                        statement = "then";
                         break;
                     case ConditionSpecifier.IfTrue:
-                        statement = "Else";
+                        statement = "else";
                         break;
                     case ConditionSpecifier.IfFalse:
-                        statement = "Endif";
+                        statement = "endif";
                         break;
                 }
-                throw new PaskellCompileException($"Expected {statement} statement", tokenCode.Length);
+                throw new PaskellCompileException($"Expected {statement} statement", tokenCode.Length - 1);
+            }
+            if (baseTypeSignature[argumentCount] != targetTypeSignature)
+            {
+                throw new PaskellCompileException($"Expected expression of type {targetTypeSignature.Value}", 0);
+            }
+
+            if (baseTypeSignature == null)
+            {
+                return targetTypeSignature;
+            }
+            else
+            {
+                return baseTypeSignature[argumentCount];
             }
         }
 
@@ -900,7 +1185,7 @@ using Utility;
         Operand,
         [RegexPattern(@"((?<=\s|\(|\)|=|(->))|^)(if|then|else|endif)\b")]
         ConditionStatement,
-        [RegexPattern(@"(?<!\\)\n")]
+        [RegexPattern(@"(?<!\\)\n\s*")]
         LineBreak
     }
 

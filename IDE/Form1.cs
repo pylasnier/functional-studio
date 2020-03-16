@@ -219,6 +219,7 @@ namespace IDE
                 {
                     edit.TextBox.Enabled = false;
                     sourceCode = edit.TextBox.Text;
+                    edit.Parse();
 
                     break;
                 }
@@ -233,7 +234,8 @@ namespace IDE
                 while (returnState.Exceptions.Count > 0)
                 {
                     PaskellCompileException exception = returnState.Exceptions.Dequeue();
-                    output.Text += $"\n{exception.ErrorMessage} on line {exception.Line + 1}, token {exception.Index + 1}";
+                    output.Text += Environment.NewLine;
+                    output.Text += $"{exception.ErrorMessage} on line {exception.Line + 1}, token {exception.Index + 1}";
                 }
             }
             else
@@ -254,7 +256,11 @@ namespace IDE
                 }
                 catch (PaskellRuntimeException f)
                 {
-                    output.Text += $"{f.ErrorMessage} in expression {f.PExpression.Identifier}";
+                    output.Text += $"{f.ErrorMessage}";
+                    if (f.PExpression != null)
+                    {
+                        output.Text += $" in expression {f.PExpression.Identifier}";
+                    }
                 }
             }
 
@@ -444,7 +450,7 @@ namespace IDE
                 TextBox.UpdateLineNumbers();
             }
 
-            private void Parse()
+            public void Parse()
             {
                 IntPtr empty = IntPtr.Zero;
                 CHARFORMAT format;
@@ -469,7 +475,7 @@ namespace IDE
                     TokeniserReturnError error = Errors.Dequeue();
                     TextBox.SelectionStart = error.Index;
                     int i = 0;
-                    while (!string.IsNullOrWhiteSpace(TextBox.Text[TextBox.SelectionStart + i].ToString())) i++;
+                    while (TextBox.SelectionStart + i < TextBox.Text.Length && !string.IsNullOrWhiteSpace(TextBox.Text[TextBox.SelectionStart + i].ToString())) i++;
                     TextBox.SelectionLength = i;
 
                     format = new CHARFORMAT();

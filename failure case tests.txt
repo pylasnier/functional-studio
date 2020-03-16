@@ -1,0 +1,35 @@
+Compiler:
+	-No type signature
+	Type signature constructor:
+		-Empty type signature
+		-Unexpected close bracket
+		-Unclosed bracket clause
+		-Multiple tokens in type definition
+			(doesn't actually get triggered, consecutive words indicate beginning of expression signature, and error would be caught later)
+		-Non-word given as type
+		-Invalid type given
+	-No expression definition (i.e. equals sign)
+	-No expression identifier (also doesn't get triggered due to consecutive words indicating expression signature start)
+	-No unique identifier for expression (i.e. multiple or no instances of an expression with a given identifier)
+	-Non-word given as parameter
+	-Too many parameters
+	-Too few parameters
+	Expression definition (PushSubExpressions):
+		-Target type signature given as null (shouldn't happen, might remove error)
+		-Invalid token (i.e. function map or equals sign)
+		-Too many subexpressions passed (i.e. more than 1 variable or base subexpression with too many arguments)
+		-Unexpected close bracket
+		-No unique identifier for expression (in this case when parameter shares the same name as an expression)
+		-Base subexpression result type signature doesn't match target type signature
+		-Subexpression doesn't match parameter type signature of base subexpression (2 places thrown)
+		-Literal value doesn't match parameter type
+		-Unclosed bracket clause
+		-Incomplete condition block
+		-Final base subexpression with given arguments doesn't match target type signature
+
+Runtime environment (in theory if the compiler works, none of these should be thrown [except base expression exceptions]):
+	-Evaluating unevaluated expression (i.e. trying to get literal value of function)
+	-Failure evaluating subexpressions of expression, would be caused by invalid argument counts or condition specifiers
+	-Trying to evaluate evaluated expression with argument (i.e. passing an argument to a literal value)
+	-Failure trying to evaluate base expression
+		(theoretically only runtime error that could occur, as compiler cannot infer the parameter types of many base expressions)
