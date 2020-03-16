@@ -130,10 +130,12 @@ namespace IDE
             if (vScrollBar.Enabled && textBox.GetLineFromCharIndex(SelectionStart) - vScrollBar.Value / (LineCount + Height / Font.Height) > Height / Font.Height)
             {
                 vScrollBar.Value = (textBox.GetLineFromCharIndex(SelectionStart) + Height / Font.Height) * (LineCount + Height / Font.Height);
+                ScrollTextBox();
             }
             else if (vScrollBar.Enabled && textBox.GetLineFromCharIndex(SelectionStart) - vScrollBar.Value / (LineCount + Height / Font.Height) < 0)
             {
                 vScrollBar.Value = textBox.GetLineFromCharIndex(SelectionStart) * (LineCount + Height / Font.Height);
+                ScrollTextBox();
             }
         }
 

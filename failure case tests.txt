@@ -15,12 +15,13 @@ Compiler:
 	-Too many parameters
 	-Too few parameters
 	Expression definition (PushSubExpressions):
-		-Target type signature given as null (shouldn't happen, might remove error)
 		-Invalid token (i.e. function map or equals sign)
 		-Too many subexpressions passed (i.e. more than 1 variable or base subexpression with too many arguments)
 		-Unexpected close bracket
+		-Condition block has then and else clauses which don't match type expression
+			OR then or else clause don't match parameter type expression (thrown from recursed call, final error here)
+		-Bracketed expression doesn't match parameter type signature (also thrown from recursed call)
 		-No unique identifier for expression (in this case when parameter shares the same name as an expression)
-		-Base subexpression result type signature doesn't match target type signature
 		-Subexpression doesn't match parameter type signature of base subexpression (2 places thrown)
 		-Literal value doesn't match parameter type
 		-Unclosed bracket clause
