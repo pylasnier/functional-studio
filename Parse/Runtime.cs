@@ -15,28 +15,28 @@ namespace Parse
         public dynamic Value { get; private set; }
         public TypeSignature TypeSignature { get; protected set; }
 
-        protected Stack<(PExpression, int)> SubExpressions { get; }
+        protected Stack<(PExpression, (int, Stack<ConditionSpecifier>))> SubExpressions { get; }
 
         private readonly bool isParamater = false;
         private int parameterIndex;
 
-        private PExpressionType type = PExpressionType.Definition;
+        private PExpressionState state = PExpressionState.Definition;
 
         private readonly bool isBaseExpression = false;
         private readonly Stack<PExpression> arguments;
-        private readonly Func<Stack<PExpression>, string, PExpression> function;
+        private readonly Func<Stack<PExpression>, PExpression> function;
 
         //Instantiates expression representing data value
         public PExpression(dynamic value, string identifier = "")
         {
             Identifier = identifier;
             Value = value;
-            type = PExpressionType.Evaluated;
+            state = PExpressionState.Evaluated;
             TypeSignature = new TypeSignature(value.GetType());
         }
 
         //Instatiates base function definition
-        public PExpression(Func<Stack<PExpression>, string, PExpression> function, TypeSignature typeSignature, string identifier = "")
+        public PExpression(Func<Stack<PExpression>, PExpression> function, TypeSignature typeSignature, string identifier = "")
         {
             Identifier = identifier;
             TypeSignature = typeSignature;
@@ -50,7 +50,7 @@ namespace Parse
         {
             Identifier = identifier;
             TypeSignature = typeSignature;
-            SubExpressions = new Stack<(PExpression, int)>();
+            SubExpressions = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
         }
 
         //Instantiates paramater of function (would be added to SubExpressions queue of function definition)
@@ -62,14 +62,14 @@ namespace Parse
             this.parameterIndex = parameterIndex;
         }
 
-        public void PushSubExpression(PExpression subExpression, int argumentCount)
+        public void PushSubExpression(PExpression subExpression, int argumentCount, Stack<ConditionSpecifier> conditionSpecifiers)
         {
-            SubExpressions.Push((subExpression, argumentCount));
+            SubExpressions.Push((subExpression, (argumentCount, conditionSpecifiers)));
         }
 
         public PExpression Evaluate()
         {
-            if (type == PExpressionType.Evaluated)
+            if (state == PExpressionState.Evaluated)
             {
                 return this;
             }
@@ -77,43 +77,89 @@ namespace Parse
             //once evaluated can remain as an evaluated expression or definition and be used in multiple places without being re-evaluated
             else
             {
-                Stack<PExpression> tempStack = new Stack<PExpression>();
-                while (SubExpressions.Count > 0)
-                {
-                    try
-                    {
-                        (PExpression expression, int argumentCount) workingExpressionTuple = SubExpressions.Pop();
-                        PExpression workingExpression = workingExpressionTuple.expression;
-                        if (workingExpressionTuple.argumentCount > 0)
-                        {
-                            for (int i = 0; i < workingExpressionTuple.argumentCount; i++)
-                            {
-                                workingExpression = workingExpression.Evaluate(tempStack.Pop());
-                            }
-                        }
-                        else
-                        {
-                            workingExpression = workingExpression.Evaluate();
-                        }
-                        tempStack.Push(workingExpression);
-                    }
-                    catch
-                    {
-                        throw new PaskellRuntimeException("Failure trying to evaluate expression", this);
-                    }
-                }
-
-                PExpression result = tempStack.Pop();
+                PExpression workedExpression = CloneWorkedExpression();
+                PExpression result = EvaluateSubExpressions(workedExpression.SubExpressions);
 
                 if (!result.TypeSignature.IsFunction)
                 {
-                    result.type = PExpressionType.Evaluated;
+                    result.state = PExpressionState.Evaluated;
                 }
                 else
                 {
-                    throw new PaskellRuntimeException("Trying to find the value of unevaluated expression", this);
+                    throw new PaskellRuntimeException("Trying to find the value of unevaluated expression", result);
                 }
                 return result;
+            }
+        }
+
+        private PExpression EvaluateSubExpressions(Stack<(PExpression, (int, Stack<ConditionSpecifier>))> subExpressions)
+        {
+            Stack<PExpression> workingStack = new Stack<PExpression>();
+            EvaluateSubExpressions(new Queue<(PExpression, (int, Stack<ConditionSpecifier>))>(subExpressions), workingStack);
+            return workingStack.Pop();
+        }
+
+        private void EvaluateSubExpressions(Queue<(PExpression, (int, Stack<ConditionSpecifier>))> subExpressions, Stack<PExpression> workingStack)
+        {
+            Queue<(PExpression, (int, Stack<ConditionSpecifier>))> condition = new Queue<(PExpression, (int, Stack<ConditionSpecifier>))>();
+            Queue<(PExpression, (int, Stack<ConditionSpecifier>))> ifTrue = new Queue<(PExpression, (int, Stack<ConditionSpecifier>))>();
+            Queue<(PExpression, (int, Stack<ConditionSpecifier>))> ifFalse = new Queue<(PExpression, (int, Stack<ConditionSpecifier>))>();
+
+            while (subExpressions.Count > 0)
+            {
+                try
+                {
+                    (PExpression expression, (int argumentCount, Stack<ConditionSpecifier> conditionSpecifiers) evaluationSpecifiers) workingExpressionTuple = subExpressions.Dequeue();
+                    PExpression expression = workingExpressionTuple.expression;
+                    int conditionSpecifierCount = workingExpressionTuple.evaluationSpecifiers.conditionSpecifiers.Count;
+                    if (conditionSpecifierCount != 0)
+                    {
+                        ConditionSpecifier conditionSpecifier = workingExpressionTuple.evaluationSpecifiers.conditionSpecifiers.Pop();
+                        switch (conditionSpecifier)
+                        {
+                            case ConditionSpecifier.Condition:
+                                condition.Enqueue(workingExpressionTuple);
+                                break;
+
+                            case ConditionSpecifier.IfTrue:
+                                ifTrue.Enqueue(workingExpressionTuple);
+                                break;
+
+                            case ConditionSpecifier.IfFalse:
+                                ifFalse.Enqueue(workingExpressionTuple);
+                                break;
+                        }
+                    }
+                    if (condition.Count != 0 && (conditionSpecifierCount == 0 || subExpressions.Count == 0))
+                    {
+                        EvaluateSubExpressions(condition, workingStack);
+                        bool conditionValue = workingStack.Pop().Evaluate().Value;
+                        if (conditionValue == true)
+                        {
+                            EvaluateSubExpressions(ifTrue, workingStack);
+                        }
+                        else
+                        {
+                            EvaluateSubExpressions(ifFalse, workingStack);
+                        }
+                    }
+                    if (conditionSpecifierCount == 0)
+                    {
+                        for (int i = 0; i < workingExpressionTuple.evaluationSpecifiers.argumentCount; i++)
+                        {
+                            expression = expression.Evaluate(workingStack.Pop());
+                        }
+                        if (!expression.TypeSignature.IsFunction)
+                        {
+                            expression = expression.Evaluate();
+                        }
+                        workingStack.Push(expression);
+                    }
+                }
+                catch
+                {
+                    throw new PaskellRuntimeException("Failed to evaluate expression", this);
+                }
             }
         }
 
@@ -124,12 +170,12 @@ namespace Parse
             PExpression workedExpression = CloneWorkedExpression();     //Only clones if not already worked expression (handled within method)
             if (!isBaseExpression)
             {
-                if (workedExpression.type == PExpressionType.WorkedExpression)
+                if (workedExpression.state == PExpressionState.WorkedExpression)
                 {
-                    Stack<(PExpression, int)> tempStack = new Stack<(PExpression, int)>();
+                    Stack<(PExpression, (int, Stack<ConditionSpecifier>))> tempStack = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
                     while (workedExpression.SubExpressions.Count > 0)
                     {
-                        (PExpression expression, int argumentCount) expression = workedExpression.SubExpressions.Pop();
+                        (PExpression expression, (int, Stack<ConditionSpecifier>)) expression = workedExpression.SubExpressions.Pop();
                         if (expression.expression.isParamater)
                         {
                             if (expression.expression.parameterIndex == 0)
@@ -156,7 +202,7 @@ namespace Parse
                 }
                 else
                 {
-                    throw new PaskellRuntimeException("Trying to pass argument to non-function expression", this);
+                    throw new PaskellRuntimeException("Trying to pass argument to non-function expression", workedExpression);
                 }
 
                 return workedExpression;
@@ -174,7 +220,7 @@ namespace Parse
                     }
                     try
                     {
-                        PExpression result = function(arguments, workedExpression.Identifier);
+                        PExpression result = function(arguments).CloneWorkedExpression(workedExpression.Identifier);
                         workedExpression = result;
                     }
                     catch
@@ -187,40 +233,52 @@ namespace Parse
             }
         }
 
-        protected PExpression CloneWorkedExpression()
+        protected PExpression CloneWorkedExpression(string identifier = null)
         {
             PExpression workedExpression;
+            
+            if (identifier == null)
+            {
+                identifier = Identifier;
+            }
 
-            if (type == PExpressionType.Definition)
+            if (state == PExpressionState.Definition)
             {
                 if (isParamater)
                 {
-                    workedExpression = new PExpression(parameterIndex, TypeSignature, Identifier);
+                    workedExpression = new PExpression(parameterIndex, TypeSignature, identifier);
                 }
                 else if (isBaseExpression)
                 {
-                    workedExpression = new PExpression(function, TypeSignature, Identifier);
+                    workedExpression = new PExpression(function, TypeSignature, identifier);
                 }
                 else
                 {
-                    workedExpression = new PExpression(TypeSignature, Identifier);
-                    Stack<(PExpression, int)> tempStack = new Stack<(PExpression, int)>();
+                    workedExpression = new PExpression(TypeSignature, identifier);
+                    Stack<(PExpression, (int, Stack<ConditionSpecifier>))> tempStack = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
                     while (SubExpressions.Count > 0)
                     {
                         tempStack.Push(SubExpressions.Pop());
                     }
                     while (tempStack.Count > 0)
                     {
-                        var subExpression = tempStack.Pop();
-                        workedExpression.SubExpressions.Push((subExpression.Item1.CloneWorkedExpression(), subExpression.Item2));
+                        (PExpression expression, (int argumentCount, Stack<ConditionSpecifier> conditionSpecifiers) evaluationSpecifiers) subExpression = tempStack.Pop();
+                        PExpression workedSubExpression = subExpression.expression;
+                        if (workedSubExpression.state != PExpressionState.Definition)
+                        {
+                            workedSubExpression = workedSubExpression.CloneWorkedExpression();
+                        }
+                        workedExpression.SubExpressions.Push((workedSubExpression, (subExpression.evaluationSpecifiers.argumentCount,
+                                                                new Stack<ConditionSpecifier>(new Stack<ConditionSpecifier>(subExpression.evaluationSpecifiers.conditionSpecifiers)))));
                         SubExpressions.Push(subExpression);
                     }
                 }
-                workedExpression.type = PExpressionType.WorkedExpression;
+                workedExpression.state = PExpressionState.WorkedExpression;
             }
             else
             {
                 workedExpression = this;
+                workedExpression.Identifier = identifier;
             }
 
             return workedExpression;
@@ -266,26 +324,6 @@ namespace Parse
             }
         }
 
-        public bool ContainsGenericTypeSignatures
-        {
-            get
-            {
-                if (IsFunction)
-                {
-                    return Parameter.ContainsGenericTypeSignatures || Return.ContainsGenericTypeSignatures;
-                }
-                else if (!IsFunction && Type == null)
-                {
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-
-            }
-        }
-
         public TypeSignature this[int i]
         {
             get
@@ -322,9 +360,16 @@ namespace Parse
                 {
                     return Parameter == typeSignature.Parameter && Return == typeSignature.Return;
                 }
-                else if (!IsFunction && !typeSignature.IsFunction && Type != null)
+                else if (!IsFunction && !typeSignature.IsFunction)
                 {
-                    return Type == typeSignature.Type;
+                    if (Type == null || typeSignature.Type == null)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return Type == typeSignature.Type;
+                    }
                 }
                 else
                 {
@@ -343,7 +388,7 @@ namespace Parse
             return !(t1 == t2);
         }
 
-        //Instantiates generic type signature, unspecified type
+        //Instantiates generic variable type
         public TypeSignature()
         {
             IsFunction = false;
@@ -384,10 +429,17 @@ namespace Parse
         }
     }
 
-    enum PExpressionType
+    enum PExpressionState
     {
         Definition,
         WorkedExpression,
         Evaluated
+    }
+
+    public enum ConditionSpecifier
+    {
+        Condition,
+        IfTrue,
+        IfFalse
     }
 }

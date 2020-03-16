@@ -8,6 +8,7 @@ using System.Runtime.Remoting.Channels;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Reflection;
 
 namespace IDE
 {
@@ -27,6 +28,12 @@ namespace IDE
         {
             get => textBox.Text;
             set => textBox.Text = value;
+        }
+
+        public new bool Enabled
+        {
+            get => !textBox.ReadOnly;
+            set => textBox.ReadOnly = !value;
         }
 
         public int SelectionStart
@@ -87,12 +94,33 @@ namespace IDE
             remove => textBox.TextChanged -= value;
         }
 
+        public new event MouseEventHandler MouseWheel
+        {
+            add
+            {
+                textBox.MouseWheel += value;
+                lineNumbers.MouseWheel += value;
+            }
+            remove
+            {
+                textBox.MouseWheel -= value;
+                lineNumbers.MouseWheel -= value;
+            }
+        }
+
+        public new event KeyEventHandler KeyPress
+        {
+            add => textBox.KeyDown += value;
+            remove => textBox.KeyDown -= value;
+        }
+
         public EditorTextBox()
         {
             InitializeComponent();
             TextChanged += OnTextChanged;
-            vScrollBar.Scroll += (sender, e) =>{ container.Location = new Point(0, 
-                (int) (-vScrollBar.Value / (LineCount + Height / Font.Height) / Math.Max(1f, LineCount - 1f) * Math.Max(Font.Height, textBox.GetPositionFromCharIndex(Text.Length - 1).Y))); };
+            MouseWheel += OnMouseWheel;
+            KeyPress += OnKeyDown;
+            vScrollBar.Scroll += (sender, e) =>{ ScrollTextBox(); };
             UpdateLineNumbers();
         }
 
@@ -107,6 +135,34 @@ namespace IDE
             {
                 vScrollBar.Value = textBox.GetLineFromCharIndex(SelectionStart) * (LineCount + Height / Font.Height);
             }
+        }
+
+        private void OnMouseWheel(object sender, MouseEventArgs e)
+        {
+            MethodInfo methodInfo = typeof(VScrollBar).GetMethod("OnMouseWheel", BindingFlags.NonPublic | BindingFlags.Instance);
+            methodInfo.Invoke(vScrollBar, new object[] { e });
+        }
+
+        private void OnKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.PageUp)
+            {
+                vScrollBar.Value = Math.Max(vScrollBar.Minimum, vScrollBar.Value - vScrollBar.LargeChange);
+                ScrollTextBox();
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.PageDown)
+            {
+                vScrollBar.Value = Math.Min(vScrollBar.Maximum, vScrollBar.Value + vScrollBar.LargeChange);
+                ScrollTextBox();
+                e.Handled = true;
+            }
+        }
+
+        private void ScrollTextBox()
+        {
+            container.Location = new Point(0,
+                (int)(-vScrollBar.Value / (LineCount + Height / Font.Height) / Math.Max(1f, LineCount - 1f) * Math.Max(Font.Height, textBox.GetPositionFromCharIndex(Text.Length - 1).Y)));
         }
 
         //private void OnScroll(object sender, ScrollEventArgs e)
@@ -133,10 +189,7 @@ namespace IDE
             }
             else
             {
-                int scrollableLines =
-                    LineCount - (Text.Last() == '\n'
-                        ? 0
-                        : 1); //Only so that it doesn't scroll to the last line unless there was a newline character
+                int scrollableLines = LineCount - (Text.Last() == '\n' ? 0 : 1); //Only so that it doesn't scroll to the last line unless there was a newline character
 
                 vScrollBar.Maximum = (scrollableLines + Height / Font.Height) * (LineCount + Height / Font.Height);
                 vScrollBar.SmallChange = Math.Min(3, scrollableLines) * (LineCount + Height / Font.Height);

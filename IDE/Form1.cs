@@ -22,6 +22,7 @@ namespace IDE
     public partial class Form1 : Form
     {
         private List<FileEdit> edits;
+        private bool running;
 
         public Form1()
         {
@@ -203,16 +204,85 @@ namespace IDE
             return true;
         }
 
-        private void BuildProgram(object sender, EventArgs e)   //Handles buildProgramToolStripMenuItem.Click
+        private void StartProgram(object sender, EventArgs e)
         {
+            PContext context;
+            CompilerReturnState returnState;
+            string sourceCode = "";
+
+            running = true;
+            UpdateUI();
+
             foreach (FileEdit edit in edits)
             {
                 if (tabControl1.SelectedTab == edit.Tab)
                 {
-                    Translator.CallMe(edit.TextBox.Text);
+                    edit.TextBox.Enabled = false;
+                    sourceCode = edit.TextBox.Text;
+                    edit.Parse();
 
                     break;
                 }
+            }
+
+            output.Text = "";
+
+            returnState = Translator.Compile(sourceCode, out context);
+
+            if (!returnState.Success)
+            {
+                while (returnState.Exceptions.Count > 0)
+                {
+                    PaskellCompileException exception = returnState.Exceptions.Dequeue();
+                    output.Text += Environment.NewLine;
+                    output.Text += $"{exception.ErrorMessage} on line {exception.Line + 1}, token {exception.Index + 1}";
+                }
+            }
+            else
+            {
+                try
+                {
+                    PExpression[] results = context.Expressions.Where(x => x.Identifier == "main").ToArray();
+                    if (results.Length != 1)
+                    {
+                        throw new PaskellRuntimeException("No unique definition for main", null);
+                    }
+                    else
+                    {
+                        PExpression main = results[0];
+                        PExpression result = main.Evaluate();
+                        output.Text += result.Value;
+                    }
+                }
+                catch (PaskellRuntimeException f)
+                {
+                    output.Text += $"{f.ErrorMessage}";
+                    if (f.PExpression != null)
+                    {
+                        output.Text += $" in expression {f.PExpression.Identifier}";
+                    }
+                }
+            }
+
+            running = false;
+            UpdateUI();
+
+            foreach (FileEdit edit in edits)
+            {
+                if (tabControl1.SelectedTab == edit.Tab)
+                {
+                    edit.TextBox.Enabled = true;
+
+                    break;
+                }
+            }
+        }
+
+        private void CancelChangeTab(object sender, TabControlCancelEventArgs e)
+        {
+            if (running)
+            {
+                e.Cancel = true;
             }
         }
 
@@ -220,54 +290,55 @@ namespace IDE
         //Enabled/disable save and save as buttons depending on if files are open
         private void UpdateUI()
         {
-            if (edits.Count > 0)
+            if (edits.Count > 0 && !running)
             {
+                toolStripButtonNew.Enabled = true;
+                toolStripButtonOpen.Enabled = true;
+                newToolStripMenuItem.Enabled = true;
+                openToolStripMenuItem.Enabled = true;
                 toolStripButtonSave.Enabled = true;
+
                 toolStripButtonSaveAs.Enabled = true;
                 saveToolStripMenuItem.Enabled = true;
                 saveAsToolStripMenuItem.Enabled = true;
+                toolStripSplitButtonStart.Enabled = true;
                 closeToolStripMenuItem.Enabled = true;
+                startToolStripMenuItem.Enabled = true;
+                startDebugToolStripMenuItem.Enabled = true;
             }
-            else
+            else if (running)
             {
+                toolStripButtonNew.Enabled = false;
+                toolStripButtonOpen.Enabled = false;
+                newToolStripMenuItem.Enabled = false;
+                openToolStripMenuItem.Enabled = false;
+
                 toolStripButtonSave.Enabled = false;
                 toolStripButtonSaveAs.Enabled = false;
                 saveToolStripMenuItem.Enabled = false;
                 saveAsToolStripMenuItem.Enabled = false;
+                toolStripSplitButtonStart.Enabled = false;
                 closeToolStripMenuItem.Enabled = false;
+                startToolStripMenuItem.Enabled = false;
+                startDebugToolStripMenuItem.Enabled = false;
+            }
+            else
+            {
+                toolStripButtonNew.Enabled = true;
+                toolStripButtonOpen.Enabled = true;
+                newToolStripMenuItem.Enabled = true;
+                openToolStripMenuItem.Enabled = true;
+
+                toolStripButtonSave.Enabled = false;
+                toolStripButtonSaveAs.Enabled = false;
+                saveToolStripMenuItem.Enabled = false;
+                saveAsToolStripMenuItem.Enabled = false;
+                toolStripSplitButtonStart.Enabled = false;
+                closeToolStripMenuItem.Enabled = false;
+                startToolStripMenuItem.Enabled = false;
+                startDebugToolStripMenuItem.Enabled = false;
             }
         }
-
-        //Allows for ctrl shortcuts. Directly maps to button features e.g. save
-        //private void CheckShortcuts(object sender, KeyEventArgs e)
-        //{
-        //    if (e.Control)
-        //    {
-        //        switch (e.KeyCode)
-        //        {
-        //            case Keys.N:
-        //                NewFile(this, EventArgs.Empty);
-        //                break;
-
-        //            case Keys.S:
-        //                SaveFile(this, EventArgs.Empty);
-        //                break;
-
-        //            case Keys.O:
-        //                OpenFile(this, EventArgs.Empty);
-        //                break;
-
-        //            case Keys.W:
-        //                CloseFile(this, EventArgs.Empty);
-        //                break;
-
-        //            default:
-        //                break;
-        //        }
-        //    }
-        //}
-
-        //^^ As is turns out, Visual Studio already has a solution for this as part of drop down menu properties
 
         //Classifies file-editing tab object, including handling nuance of unsaved files (titled 'Untitled'), saving and saving as, changing file path and tab title
         //when necessary i.e. once saved as a new file, title needs to change accordingly.
@@ -365,13 +436,13 @@ namespace IDE
                     Tab.Text += '*';
                 }
 
-                tokenSource.Cancel();
-                tokenSource = new CancellationTokenSource();
-                try
-                {
-                    await ExecuteAfterTime(Parse, 1000);
-                }
-                catch { }
+                //tokenSource.Cancel();
+                //tokenSource = new CancellationTokenSource();
+                //try
+                //{
+                //    await ExecuteAfterTime(Parse, 1000);
+                //}
+                //catch { }
             }
 
             private void OnResize(object sender, EventArgs e)
@@ -379,7 +450,7 @@ namespace IDE
                 TextBox.UpdateLineNumbers();
             }
 
-            private void Parse()
+            public void Parse()
             {
                 IntPtr empty = IntPtr.Zero;
                 CHARFORMAT format;
@@ -398,26 +469,20 @@ namespace IDE
                 format.bUnderlineType = 0;
                 SendMessage(TextBox.TextHandle, EM_SETCHARFORMAT, (IntPtr) SCF_SELECTION, ref format);
 
-                var parserReturn = new ParserReturnState();
-
-                if (!parserReturn.Success)
+                Queue<TokeniserReturnError> Errors = Translator.GetTokeniserErrors(TextBox.Text);
+                while (Errors.Count > 0)
                 {
-                    foreach (ParserReturnErrorInfo error in parserReturn.Errors)
-                    {
-                        if (error.Error == ParserReturnError.BadIdentifier)
-                        {
-                            TextBox.SelectionStart = error.Index;
-                            int i = 0;
-                            while (!string.IsNullOrWhiteSpace(TextBox.Text[TextBox.SelectionStart + i].ToString())) i++;
-                            TextBox.SelectionLength = i;
+                    TokeniserReturnError error = Errors.Dequeue();
+                    TextBox.SelectionStart = error.Index;
+                    int i = 0;
+                    while (TextBox.SelectionStart + i < TextBox.Text.Length && !string.IsNullOrWhiteSpace(TextBox.Text[TextBox.SelectionStart + i].ToString())) i++;
+                    TextBox.SelectionLength = i;
 
-                            format = new CHARFORMAT();
-                            format.cbSize = Marshal.SizeOf(format);
-                            format.dwMask = CFM_UNDERLINETYPE;
-                            format.bUnderlineType = WaveUnderlineStyle | RedUnderlineColour;
-                            SendMessage(TextBox.TextHandle, EM_SETCHARFORMAT, (IntPtr) SCF_SELECTION, ref format);
-                        }
-                    }
+                    format = new CHARFORMAT();
+                    format.cbSize = Marshal.SizeOf(format);
+                    format.dwMask = CFM_UNDERLINETYPE;
+                    format.bUnderlineType = WaveUnderlineStyle | RedUnderlineColour;
+                    SendMessage(TextBox.TextHandle, EM_SETCHARFORMAT, (IntPtr) SCF_SELECTION, ref format);
                 }
 
                 TextBox.SelectionStart = selectionStart;
