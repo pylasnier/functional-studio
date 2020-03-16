@@ -129,7 +129,7 @@ namespace IDE
             UpdateLineNumbers();
             if (vScrollBar.Enabled && textBox.GetLineFromCharIndex(SelectionStart) - vScrollBar.Value / (LineCount + Height / Font.Height) > Height / Font.Height)
             {
-                vScrollBar.Value = (textBox.GetLineFromCharIndex(SelectionStart) + Height / Font.Height) * (LineCount + Height / Font.Height);
+                vScrollBar.Value = (textBox.GetLineFromCharIndex(SelectionStart) - Height / Font.Height) * (LineCount + Height / Font.Height);
                 ScrollTextBox();
             }
             else if (vScrollBar.Enabled && textBox.GetLineFromCharIndex(SelectionStart) - vScrollBar.Value / (LineCount + Height / Font.Height) < 0)
@@ -158,6 +158,10 @@ namespace IDE
                 vScrollBar.Value = Math.Min(vScrollBar.Maximum, vScrollBar.Value + vScrollBar.LargeChange);
                 ScrollTextBox();
                 e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down || e.KeyCode == Keys.Left || e.KeyCode == Keys.Right)
+            {
+                OnTextChanged(sender, EventArgs.Empty);
             }
         }
 
