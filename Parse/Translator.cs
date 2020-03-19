@@ -528,8 +528,6 @@ using Utility;
                                 {
                                     throw new PaskellCompileException(e.ErrorMessage, e.Index + bracketStartIndex);
                                 }
-
-                                argumentCount++;
                             }
                         }
                     }
@@ -684,7 +682,7 @@ using Utility;
                                     {
                                         try
                                         {
-                                            type = operandType.GetType();
+                                            type = operandType.GetPType();
                                             TypeConverter converter = TypeDescriptor.GetConverter(type);
                                             variable = converter.ConvertFromString(token.Code);
                                             success = true;
