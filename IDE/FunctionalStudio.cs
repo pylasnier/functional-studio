@@ -317,11 +317,12 @@ namespace IDE
                 toolStripButtonOpen.Enabled = true;
                 newToolStripMenuItem.Enabled = true;
                 openToolStripMenuItem.Enabled = true;
-                toolStripButtonSave.Enabled = true;
 
+                toolStripButtonSave.Enabled = true;
                 toolStripButtonSaveAll.Enabled = true;
                 saveToolStripMenuItem.Enabled = true;
                 saveAsToolStripMenuItem.Enabled = true;
+                saveAllToolStripMenuItem.Enabled = true;
                 toolStripSplitButtonStart.Enabled = true;
                 closeToolStripMenuItem.Enabled = true;
                 startToolStripMenuItem.Enabled = true;
@@ -337,6 +338,7 @@ namespace IDE
                 toolStripButtonSaveAll.Enabled = false;
                 saveToolStripMenuItem.Enabled = false;
                 saveAsToolStripMenuItem.Enabled = false;
+                saveAllToolStripMenuItem.Enabled = false;
                 toolStripSplitButtonStart.Enabled = false;
                 closeToolStripMenuItem.Enabled = false;
                 startToolStripMenuItem.Enabled = false;
@@ -352,6 +354,7 @@ namespace IDE
                 toolStripButtonSaveAll.Enabled = false;
                 saveToolStripMenuItem.Enabled = false;
                 saveAsToolStripMenuItem.Enabled = false;
+                saveAllToolStripMenuItem.Enabled = false;
                 toolStripSplitButtonStart.Enabled = false;
                 closeToolStripMenuItem.Enabled = false;
                 startToolStripMenuItem.Enabled = false;
