@@ -1,30 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Net.Mime;
-using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 using Parse;
-using Utility;
-using Timer = System.Windows.Forms.Timer;
 
 namespace IDE
 {
-    public partial class Form1 : Form
+    public partial class FunctionalStudio : Form
     {
         private List<FileEdit> edits;
         private bool running;
 
-        public Form1()
+        public FunctionalStudio()
         {
             //Though in practice Visual Studio discourages editing the InitializeComponent function, I did so to assign custom event handlers, e.g. NewFile and OpenFile
             
@@ -51,7 +44,7 @@ namespace IDE
             {
                 dialog.Title = "Open file";
                 dialog.Multiselect = false;
-                dialog.Filter = "Functional Studio files (*.ps)|*.ps";
+                dialog.Filter = "Paskell files (*.ps)|*.ps";
                 dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
                 Enabled = false;
@@ -100,7 +93,8 @@ namespace IDE
 
             UpdateUI();
         }
-        private void SaveFileAs(object sender, EventArgs e) //Handles saveAsToolStripMenuItem.Click and toolStripButtonSaveAs.Click
+
+        private void SaveFileAs(object sender, EventArgs e) //Handles saveAsToolStripMenuItem.Click
         {
             foreach (FileEdit edit in edits)
             {
@@ -115,13 +109,33 @@ namespace IDE
             UpdateUI();
         }
 
-        //Subroutine to handle save-as file dialog, placed in a separate function as both SaveFile and SaveFileAs call the same sequence
-        private void SaveTabFileAs(FileEdit edit)
+        private void SaveAll(object sender, EventArgs e)    //Handles toolStripButtonSaveAll.Click
         {
+            foreach (FileEdit edit in edits)
+            {
+                //Equivalent to the SaveFile sequence, except for a break in the loop when SaveAs fails
+                if (edit.FilePath != "")
+                {
+                    edit.SaveFile();
+                }
+                else
+                {
+                    if (!SaveTabFileAs(edit))
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+
+        //Subroutine to handle save-as file dialog, placed in a separate function as both SaveFile and SaveFileAs call the same sequence
+        private bool SaveTabFileAs(FileEdit edit)
+        {
+            bool success = false;
             using (var dialog = new SaveFileDialog())
             {
                 dialog.Title = "Save file as";
-                dialog.Filter = "Functional Studio files (*.ps)|*.ps";
+                dialog.Filter = "Paskell files (*.ps)|*.ps";
                 dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
                 Enabled = false;
@@ -130,6 +144,7 @@ namespace IDE
                     try
                     {
                         edit.SaveFileAs(dialog.FileName);
+                        success = true;
                     }
                     catch (DirectoryNotFoundException)
                     {
@@ -139,6 +154,8 @@ namespace IDE
                 }
                 Enabled = true;
             }
+
+            return success;
         }
 
         private void CloseFile(object sender, EventArgs e)      //Handles closeToolStripMenuItem.Click
@@ -163,6 +180,7 @@ namespace IDE
             edits.CopyTo(copyEdits);
             foreach (FileEdit edit in copyEdits)
             {
+                //Attempts to close every open edit and breaks from loop if one fails
                 if (!CloseTabFile(edit))
                 {
                     e.Cancel = true;
@@ -204,7 +222,7 @@ namespace IDE
             return true;
         }
 
-        private void StartProgram(object sender, EventArgs e)
+        private void StartProgram(object sender, EventArgs e)   //Handles startToolStripMenuItem.Click and toolStripSplitButtonStart.Click
         {
             PContext context;
             CompilerReturnState returnState;
@@ -213,13 +231,14 @@ namespace IDE
             running = true;
             UpdateUI();
 
+            //Gets source code from active tab
             foreach (FileEdit edit in edits)
             {
                 if (tabControl1.SelectedTab == edit.Tab)
                 {
                     edit.TextBox.Enabled = false;
                     sourceCode = edit.TextBox.Text;
-                    edit.Parse();
+                    edit.HighlightErrors();
 
                     break;
                 }
@@ -231,6 +250,7 @@ namespace IDE
 
             if (!returnState.Success)
             {
+                //Any compile errors prevent execution and are printed in output
                 while (returnState.Exceptions.Count > 0)
                 {
                     PaskellCompileException exception = returnState.Exceptions.Dequeue();
@@ -242,6 +262,7 @@ namespace IDE
             {
                 try
                 {
+                    //Similar pattern to that within compiler when defining expressions, ensure that there is one and only one "main" definition
                     PExpression[] results = context.Expressions.Where(x => x.Identifier == "main").ToArray();
                     if (results.Length != 1)
                     {
@@ -250,7 +271,7 @@ namespace IDE
                     else
                     {
                         PExpression main = results[0];
-                        PExpression result = main.Evaluate();
+                        PExpression result = main.Evaluate();       //Run the code
                         output.Text += result.Value;
                     }
                 }
@@ -278,7 +299,7 @@ namespace IDE
             }
         }
 
-        private void CancelChangeTab(object sender, TabControlCancelEventArgs e)
+        private void CancelChangeTab(object sender, TabControlCancelEventArgs e)        //Handles tabControl1.Selecting
         {
             if (running)
             {
@@ -298,13 +319,12 @@ namespace IDE
                 openToolStripMenuItem.Enabled = true;
                 toolStripButtonSave.Enabled = true;
 
-                toolStripButtonSaveAs.Enabled = true;
+                toolStripButtonSaveAll.Enabled = true;
                 saveToolStripMenuItem.Enabled = true;
                 saveAsToolStripMenuItem.Enabled = true;
                 toolStripSplitButtonStart.Enabled = true;
                 closeToolStripMenuItem.Enabled = true;
                 startToolStripMenuItem.Enabled = true;
-                startDebugToolStripMenuItem.Enabled = true;
             }
             else if (running)
             {
@@ -314,13 +334,12 @@ namespace IDE
                 openToolStripMenuItem.Enabled = false;
 
                 toolStripButtonSave.Enabled = false;
-                toolStripButtonSaveAs.Enabled = false;
+                toolStripButtonSaveAll.Enabled = false;
                 saveToolStripMenuItem.Enabled = false;
                 saveAsToolStripMenuItem.Enabled = false;
                 toolStripSplitButtonStart.Enabled = false;
                 closeToolStripMenuItem.Enabled = false;
                 startToolStripMenuItem.Enabled = false;
-                startDebugToolStripMenuItem.Enabled = false;
             }
             else
             {
@@ -330,13 +349,12 @@ namespace IDE
                 openToolStripMenuItem.Enabled = true;
 
                 toolStripButtonSave.Enabled = false;
-                toolStripButtonSaveAs.Enabled = false;
+                toolStripButtonSaveAll.Enabled = false;
                 saveToolStripMenuItem.Enabled = false;
                 saveAsToolStripMenuItem.Enabled = false;
                 toolStripSplitButtonStart.Enabled = false;
                 closeToolStripMenuItem.Enabled = false;
                 startToolStripMenuItem.Enabled = false;
-                startDebugToolStripMenuItem.Enabled = false;
             }
         }
 
@@ -366,6 +384,7 @@ namespace IDE
                 tabControl.TabPages.Add(Tab);
             }
 
+            //This overload is used when creating a new FileEdit instance but for a file which is being opened
             public FileEdit(TabControl tabControl, string filePath)
             {
                 string text;
@@ -391,9 +410,9 @@ namespace IDE
                 tabControl.Resize += OnResize;
 
                 tabControl.TabPages.Add(Tab);
-                TextBox.UpdateLineNumbers();
-            }
-
+                TextBox.UpdateLineNumbers();//----->//Necessary for the reason that the size of the EditorTextBox control changes after it is instantiated and updated
+            }                                       //therefore it scales the internal components incorrectly, so needs to be reupdated otherwise it remains incorrectly
+                                                    //scaled until the text is changed
             public void SaveFile()
             {
                 if (!Saved)
@@ -420,14 +439,14 @@ namespace IDE
                 SaveFile();
             }
 
-
+            //Allows for safe removal of these objects when tabs in the control are closed
             public void Dispose()
             {
                 TextBox.Dispose();
                 Tab.Dispose();
             }
 
-            private async void TextChanged(object sender, EventArgs e)
+            private void TextChanged(object sender, EventArgs e)
             {
                 //UI feature: asterisk indicates changes aren't saved
                 if (Saved)
@@ -447,19 +466,20 @@ namespace IDE
 
             private void OnResize(object sender, EventArgs e)
             {
-                TextBox.UpdateLineNumbers();
+                TextBox.UpdateLineNumbers();        //Called for the same reason as it is called in the constructor for opening a file
             }
 
-            public void Parse()
+            //Primary attempt of text highlighting using the EM_SETCHARFORMAT message as part of the windows controls rich edit tools
+            public void HighlightErrors()
             {
                 IntPtr empty = IntPtr.Zero;
                 CHARFORMAT format;
-                SendMessage(TextBox.TextHandle, WM_SETREDRAW, IntPtr.Zero, ref empty);
+                SendMessage(TextBox.TextHandle, WM_SETREDRAW, IntPtr.Zero, ref empty);      //Disables drawing of the textbox so the user doesn't see the text selection process
 
                 int selectionStart = TextBox.SelectionStart;
                 int selectionLength = TextBox.SelectionLength;
 
-                TextBox.TextChanged -= TextChanged;
+                TextBox.TextChanged -= TextChanged;         //This prevents all the app processing these changes as the file being edited
 
                 TextBox.SelectAll();
 
@@ -467,7 +487,7 @@ namespace IDE
                 format.cbSize = Marshal.SizeOf(format);
                 format.dwMask = CFM_UNDERLINETYPE;
                 format.bUnderlineType = 0;
-                SendMessage(TextBox.TextHandle, EM_SETCHARFORMAT, (IntPtr) SCF_SELECTION, ref format);
+                SendMessage(TextBox.TextHandle, EM_SETCHARFORMAT, (IntPtr) SCF_SELECTION, ref format);      //Removes all underlining of text
 
                 Queue<TokeniserReturnError> Errors = Translator.GetTokeniserErrors(TextBox.Text);
                 while (Errors.Count > 0)
@@ -475,6 +495,7 @@ namespace IDE
                     TokeniserReturnError error = Errors.Dequeue();
                     TextBox.SelectionStart = error.Index;
                     int i = 0;
+                    //This while loops runs to the end of a word (or the end of the file) to select it to underline
                     while (TextBox.SelectionStart + i < TextBox.Text.Length && !string.IsNullOrWhiteSpace(TextBox.Text[TextBox.SelectionStart + i].ToString())) i++;
                     TextBox.SelectionLength = i;
 
@@ -482,9 +503,10 @@ namespace IDE
                     format.cbSize = Marshal.SizeOf(format);
                     format.dwMask = CFM_UNDERLINETYPE;
                     format.bUnderlineType = WaveUnderlineStyle | RedUnderlineColour;
-                    SendMessage(TextBox.TextHandle, EM_SETCHARFORMAT, (IntPtr) SCF_SELECTION, ref format);
+                    SendMessage(TextBox.TextHandle, EM_SETCHARFORMAT, (IntPtr) SCF_SELECTION, ref format);  //Underlines selected text with red wavy underline
                 }
 
+                //Putting everything back to normal again
                 TextBox.SelectionStart = selectionStart;
                 TextBox.SelectionLength = selectionLength;
 
@@ -494,13 +516,14 @@ namespace IDE
                 TextBox.TextUpdate();
             }
 
-            private async Task ExecuteAfterTime(Action action, int timeoutInMilliseconds)
-            {
-                await Task.Delay(timeoutInMilliseconds, tokenSource.Token);
-                action();
-            }
+            //private async Task ExecuteAfterTime(Action action, int timeoutInMilliseconds)
+            //{
+            //    await Task.Delay(timeoutInMilliseconds, tokenSource.Token);
+            //    action();
+            //}
         }
 
+        //These are all the values used in the HighlightErrors sub when using SendMessage to manipulate the textbox
         private const uint CFM_UNDERLINETYPE = 0x800000;
         private const int SCF_SELECTION = 1;
         private const int EM_SETCHARFORMAT = 0x0444;
@@ -509,6 +532,10 @@ namespace IDE
         private const byte RedUnderlineColour = 0x50;
 
         //http://geekswithblogs.net/pvidler/archive/2003/10/15/188.aspx
+        //The following struct is the structure used to send information about the rich text editing to the textbox
+        //We only use dwMask and bUnderlineType i.e. set mask to only consider underline information, then provide that underline information
+        //cbSize is a perculiar necessity of implementing C++ library functions in C# with variable sized structures,
+        //where the size of an instantiated structure, in this case CHARFORMAT, needs to be given back to itself using Marshal.SizeOf()
         [StructLayout(LayoutKind.Sequential)]
         private struct CHARFORMAT
         {
@@ -539,6 +566,6 @@ namespace IDE
         [DllImport("User32.dll")]
         private static extern int SendMessage(IntPtr handle, int message, IntPtr wParam, ref CHARFORMAT lParam);
         [DllImport("User32.dll")]
-        private static extern int SendMessage(IntPtr handle, int message, IntPtr wParam, ref IntPtr lParam);
+        private static extern int SendMessage(IntPtr handle, int message, IntPtr wParam, ref IntPtr lParam);        //Importing it again for the disable drawing purpose
     }
 }

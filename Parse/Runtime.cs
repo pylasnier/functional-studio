@@ -1,27 +1,24 @@
 ﻿using System;
-using System.CodeDom;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Runtime.InteropServices;
 
 namespace Parse
 {
     public class PExpression
     {
         public string Identifier { get; protected set; }
-        public dynamic Value { get; private set; }
+        public dynamic Value { get; private set; }      //Used if the expression is an evaluated variable
         public TypeSignature TypeSignature { get; protected set; }
 
+        //Used if the expression is an unevaluated expression i.e. an unevaluated variable or a function definition
         protected Stack<(PExpression, (int, Stack<ConditionSpecifier>))> SubExpressions { get; }
 
+        //Used if the expression is a parameter
         private readonly bool isParamater = false;
         private int parameterIndex;
 
-        private PExpressionState state = PExpressionState.Definition;
+        private PExpressionState state = PExpressionState.Definition;   //Definitions should never be directly worked on; they must be cloned first
 
+        //Variables used if the expresion is a base expression
         private readonly bool isBaseExpression = false;
         private readonly Stack<PExpression> arguments;
         private readonly Func<Stack<PExpression>, PExpression> function;
@@ -62,19 +59,20 @@ namespace Parse
             this.parameterIndex = parameterIndex;
         }
 
+        //Since SubExpressions is a protected property, it needs a public accessor to push items
         public void PushSubExpression(PExpression subExpression, int argumentCount, Stack<ConditionSpecifier> conditionSpecifiers)
         {
             SubExpressions.Push((subExpression, (argumentCount, conditionSpecifiers)));
         }
 
+        //This function is called when the value of an expression is trying to be retrieved
+        //The expression must therefore be a variable or a parametised function
         public PExpression Evaluate()
         {
             if (state == PExpressionState.Evaluated)
             {
                 return this;
             }
-            //Doesn't matter here if the expression is a definition and doesn't need to be cloned, as it is a separately defined expression that
-            //once evaluated can remain as an evaluated expression or definition and be used in multiple places without being re-evaluated
             else
             {
                 PExpression workedExpression = CloneWorkedExpression();
@@ -96,11 +94,13 @@ namespace Parse
         {
             Stack<PExpression> workingStack = new Stack<PExpression>();
             EvaluateSubExpressions(new Queue<(PExpression, (int, Stack<ConditionSpecifier>))>(subExpressions), workingStack);
+            //Using the working stack, the final result of the evaluated subexpressions should be the only element on the stack, which can then be popped
             return workingStack.Pop();
         }
 
         private void EvaluateSubExpressions(Queue<(PExpression, (int, Stack<ConditionSpecifier>))> subExpressions, Stack<PExpression> workingStack)
         {
+            //These queues used as temporary holding of subexpressions, to ensure that only the necessary subexpressions are evaluated depending on a condition
             Queue<(PExpression, (int, Stack<ConditionSpecifier>))> condition = new Queue<(PExpression, (int, Stack<ConditionSpecifier>))>();
             Queue<(PExpression, (int, Stack<ConditionSpecifier>))> ifTrue = new Queue<(PExpression, (int, Stack<ConditionSpecifier>))>();
             Queue<(PExpression, (int, Stack<ConditionSpecifier>))> ifFalse = new Queue<(PExpression, (int, Stack<ConditionSpecifier>))>();
@@ -111,6 +111,7 @@ namespace Parse
                 {
                     (PExpression expression, (int argumentCount, Stack<ConditionSpecifier> conditionSpecifiers) evaluationSpecifiers) workingExpressionTuple = subExpressions.Dequeue();
                     PExpression expression = workingExpressionTuple.expression;
+                    //This copy is necessary as the count may change within the loop, but the initial count must be remembered
                     int conditionSpecifierCount = workingExpressionTuple.evaluationSpecifiers.conditionSpecifiers.Count;
                     if (conditionSpecifierCount != 0)
                     {
@@ -122,23 +123,12 @@ namespace Parse
                                 break;
 
                             case ConditionSpecifier.IfTrue:
-                                if (condition.Count != 0)
-                                {
-                                    EvaluateSubExpressions(condition, workingStack);
-                                    bool conditionValue = workingStack.Pop().Evaluate().Value;
-                                    if (conditionValue == true)
-                                    {
-                                        EvaluateSubExpressions(ifTrue, workingStack);
-                                    }
-                                    else
-                                    {
-                                        EvaluateSubExpressions(ifFalse, workingStack);
-                                    }
-                                }
                                 ifTrue.Enqueue(workingExpressionTuple);
                                 break;
 
                             case ConditionSpecifier.IfFalse:
+                                //Condition clause would only ever be preceded by an else clause, or a non-condition subexpression
+                                //This is for the case of a condition clause being preceded by an else clause
                                 if (condition.Count != 0)
                                 {
                                     EvaluateSubExpressions(condition, workingStack);
@@ -158,8 +148,11 @@ namespace Parse
                                 break;
                         }
                     }
+                    //This is for the case of a condition clause being preceded by a non-condition subexpression or the start of the subexpressions
                     if (condition.Count != 0 && (conditionSpecifierCount == 0 || subExpressions.Count == 0))
                     {
+                        //The bool value of the condition must be evaluated, then the correct clause evaluated according to that
+                        //When recursively calling EvaluateSubExpressions here, nested condition blocks are considered as the top condition specifier is popped above
                         EvaluateSubExpressions(condition, workingStack);
                         bool conditionValue = workingStack.Pop().Evaluate().Value;
                         if (conditionValue == true)
@@ -173,6 +166,7 @@ namespace Parse
                             ifTrue.Clear();
                         }
                     }
+                    //If there is no condition specified, then the subexpression can just be normally evaluated
                     if (conditionSpecifierCount == 0)
                     {
                         for (int i = 0; i < workingExpressionTuple.evaluationSpecifiers.argumentCount; i++)
@@ -193,6 +187,7 @@ namespace Parse
             }
         }
 
+        //Called when passing an argument to a function
         public PExpression Evaluate(PExpression argument)
         {
             //Important here however if that the expression is an definition, it remains unchanged and a new instance
@@ -202,18 +197,22 @@ namespace Parse
             {
                 if (workedExpression.state == PExpressionState.WorkedExpression)
                 {
+                    //Using a temp stack effectively allows looping through a stack by transferring items to the temp stack, then back to the original once done
                     Stack<(PExpression, (int, Stack<ConditionSpecifier>))> tempStack = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
                     while (workedExpression.SubExpressions.Count > 0)
                     {
                         (PExpression expression, (int, Stack<ConditionSpecifier>)) expression = workedExpression.SubExpressions.Pop();
                         if (expression.expression.isParamater)
                         {
+                            //Parameters are indexed, 0 upwards, where the highest numbered are for the final argument
                             if (expression.expression.parameterIndex == 0)
                             {
                                 expression.expression = argument;
                             }
                             else
                             {
+                                //So that for the next argument passed, the next index i.e. index 1 will be replaced
+                                //This is done by decrementing all indicies, so 1 becomes 0 etc.
                                 expression.expression.parameterIndex--;
                             }
                         }
@@ -227,6 +226,7 @@ namespace Parse
 
                     if (!workedExpression.TypeSignature.IsFunction)
                     {
+                        //Function fully parametised
                         workedExpression = workedExpression.Evaluate();
                     }
                 }
@@ -237,6 +237,7 @@ namespace Parse
 
                 return workedExpression;
             }
+            //For if the expression is a base expression
             else
             {
                 workedExpression.arguments.Push(argument);
@@ -250,7 +251,8 @@ namespace Parse
                     }
                     try
                     {
-                        PExpression result = function(arguments).CloneWorkedExpression(workedExpression.Identifier);
+                        //Calls the function of the base expression and passes it the stack of arguments passed
+                        PExpression result = function(arguments).CloneWorkedExpression(workedExpression.Identifier);    //Calling clone function just allows the identifier to be assigned
                         workedExpression = result;
                     }
                     catch
@@ -263,6 +265,10 @@ namespace Parse
             }
         }
 
+        //When compiled, every function definition is classed as a definition, which indicates that it represents the original definition of any expression.
+        //It is important that when evaluating expressions, the original definition remains untouched as a function or expression may be referenced
+        //in multiple places, for example in recursion. Therefore a clone must be used instead, and it is identified as a worked expression which is
+        //safe to work on
         protected PExpression CloneWorkedExpression(string identifier = null)
         {
             PExpression workedExpression;
@@ -292,12 +298,15 @@ namespace Parse
                     }
                     while (tempStack.Count > 0)
                     {
+                        //If subexpressions contain references to other expression definitions, they shouldn't be cloned until they have to be evaluated
+                        //Therefore they are left alone, and will naturally be cloned when evaluated i.e. this function gets called from their Evaluate call
                         (PExpression expression, (int argumentCount, Stack<ConditionSpecifier> conditionSpecifiers) evaluationSpecifiers) subExpression = tempStack.Pop();
                         PExpression workedSubExpression = subExpression.expression;
                         if (workedSubExpression.state != PExpressionState.Definition)
                         {
                             workedSubExpression = workedSubExpression.CloneWorkedExpression();
                         }
+                        //Important to clone the evaluation specifier stacks too
                         workedExpression.SubExpressions.Push((workedSubExpression, (subExpression.evaluationSpecifiers.argumentCount,
                                                                 new Stack<ConditionSpecifier>(new Stack<ConditionSpecifier>(subExpression.evaluationSpecifiers.conditionSpecifiers)))));
                         SubExpressions.Push(subExpression);
@@ -305,6 +314,7 @@ namespace Parse
                 }
                 workedExpression.state = PExpressionState.WorkedExpression;
             }
+            //If already cloned
             else
             {
                 workedExpression = this;
@@ -322,7 +332,7 @@ namespace Parse
         public TypeSignature Parameter { get; }     // --Used if IsFunction is true
         public TypeSignature Return { get; }        // _/
 
-        public string Value => ToString(); //Mostly for debug purposes
+        public string Value => ToString(); //Mostly for debug purposes, writes type signature in Paskell syntax
 
         public int ArgumentCount
         {
@@ -354,6 +364,8 @@ namespace Parse
             }
         }
 
+        //Every next index of a type signature is just that type signature's return
+        //From this, every argument type of a type signature can be indexed as TypeSignature[i].Parameter
         public TypeSignature this[int i]
         {
             get
@@ -376,6 +388,9 @@ namespace Parse
             }
         }
 
+        //Used to check if type signatures are the same (generic types count as equalling anything)
+        //Also necessary to allow comparison with null if uninstantiated, though I don't think I've fully implemented a solution for this
+        //However it works for my limited use of comparisons
         public override bool Equals(object obj)
         {
             //Check for null and compare run-time types.
@@ -440,11 +455,13 @@ namespace Parse
             Return = returnt;
         }
 
+        //Produces Paskell syntax type signature
         public string ToString(bool brackets = true)
         {
             return IsFunction ? $"{(brackets ? "(" : "")}{Parameter.ToString()} -> {Return.ToString(false)}{(brackets ? ")" : "")}" : (Type != null ? GetTypeString(Type) : "_");
         }
 
+        //Ensures that the types given by the enum are returned as strings rather than the C# types
         private string GetTypeString(Type type)
         {
             foreach (OperandType operandType in Enum.GetValues(typeof(OperandType)))

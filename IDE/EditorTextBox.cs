@@ -1,12 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.Data;
 using System.Linq;
-using System.Runtime.Remoting.Channels;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Reflection;
 
@@ -14,6 +8,8 @@ namespace IDE
 {
     public partial class EditorTextBox : UserControl
     {
+        //Most of these overloads are to make interaction with the actual textBox component of this control as close as possible to a real textbox
+        //They also interact with the lineNumbers component in places to make properties consistent between the two controls
         public override Font Font
         {
             get => textBox.Font;
@@ -30,6 +26,9 @@ namespace IDE
             set => textBox.Text = value;
         }
 
+        //This is used in particular for when code is running, where the editor needs to be disabled
+        //I prefered instead changing the ReadOnly property of the textbox rather than Enabled, as the colour is nicer,
+        //and text can still be selected without allowing changes.
         public new bool Enabled
         {
             get => !textBox.ReadOnly;
@@ -60,34 +59,6 @@ namespace IDE
 
         public IntPtr TextHandle => textBox.Handle;
 
-        public int LineCount        //textbox.Lines.Length doesn't quite give me what I want for line numbers
-        {
-            get
-            {
-                int value = 1;
-                bool lastLineEmpty = true;
-                for (int i = 0; i < Text.Length; i++)
-                {
-                    if (Text[i] == '\n')
-                    {
-                        value++;
-                        lastLineEmpty = true;
-                    }
-                    else if (lastLineEmpty)
-                    {
-                        lastLineEmpty = false;
-                    }
-                }
-
-                if (lastLineEmpty)
-                {
-                    value--;
-                }
-
-                return value;
-            }
-        }
-
         public new event EventHandler TextChanged
         {
             add => textBox.TextChanged += value;
@@ -113,6 +84,35 @@ namespace IDE
             add => textBox.KeyDown += value;
             remove => textBox.KeyDown -= value;
         }
+        //End of overloads
+        
+        public int LineCount        //textbox.Lines.Length doesn't quite give me what I want for line numbers
+        {
+            get
+            {
+                int value = 1;
+                bool lastLineEmpty = true;
+                for (int i = 0; i < Text.Length; i++)
+                {
+                    if (Text[i] == '\n')
+                    {
+                        value++;
+                        lastLineEmpty = true;
+                    }
+                    else if (lastLineEmpty)
+                    {
+                        lastLineEmpty = false;
+                    }
+                }
+
+                if (lastLineEmpty)
+                {
+                    value--;
+                }
+
+                return value;       //Resulting value is as many lines up to the end position, minus 1 if the last line doesn't contain any text i.e. is only a newline
+            }
+        }
 
         public EditorTextBox()
         {
@@ -127,6 +127,8 @@ namespace IDE
         private void OnTextChanged(object sender, EventArgs e)
         {
             UpdateLineNumbers();
+            //These just refocus the editor window by scrolling up/down to where the caret is
+            //The distinction between up or down is so it only scrolls as far as it has to, which depends on direction, or if not at all
             if (vScrollBar.Enabled && textBox.GetLineFromCharIndex(SelectionStart) - vScrollBar.Value / (LineCount + Height / Font.Height) > Height / Font.Height)
             {
                 vScrollBar.Value = (textBox.GetLineFromCharIndex(SelectionStart) - Height / Font.Height) * (LineCount + Height / Font.Height);
@@ -139,12 +141,14 @@ namespace IDE
             }
         }
 
+        //Effectively passes on mousewheel events from the textbox to the scrollbar
         private void OnMouseWheel(object sender, MouseEventArgs e)
         {
             MethodInfo methodInfo = typeof(VScrollBar).GetMethod("OnMouseWheel", BindingFlags.NonPublic | BindingFlags.Instance);
             methodInfo.Invoke(vScrollBar, new object[] { e });
         }
 
+        //Makes pageup and pagedown scroll, and forces textbox to update when caret is moved using arrow keys
         private void OnKeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.PageUp)
@@ -165,16 +169,13 @@ namespace IDE
             }
         }
 
+        //The strange combinations of divisions is because the integer font height and the height of many lines of a give font don't line up
+        //and so the actual height must be used instead. This is on top of the scrollbar value having a multiplier which makes the thumb size appropriate
         private void ScrollTextBox()
         {
             container.Location = new Point(0,
                 (int)(-vScrollBar.Value / (LineCount + Height / Font.Height) / Math.Max(1f, LineCount - 1f) * Math.Max(Font.Height, textBox.GetPositionFromCharIndex(Text.Length - 1).Y)));
         }
-
-        //private void OnScroll(object sender, ScrollEventArgs e)
-        //{
-        //    panel.VerticalScroll.Value = e.NewValue;
-        //}
 
         public void UpdateLineNumbers()
         {
@@ -195,6 +196,12 @@ namespace IDE
             }
             else
             {
+                //A large consideration for the scrollbar was needed, as the ratio of the size of the thumb to the size of the scrollbar is actually given
+                //by the ratio of the LargeChange property to the difference between the Maximum and Minimum properties. Also a strange behaviour of the
+                //scrollbar is that the value of it can never make it to Maximum, only to Maximum - LargeChange, similar to how it visually behaves.
+                //The following complicated adjustments to these properties are to compensate for these behaviours, and to achieve a thumb whose size ratio
+                //matches the size ratio of the visible window to the whole text file
+
                 int scrollableLines = LineCount - (Text.Last() == '\n' ? 0 : 1); //Only so that it doesn't scroll to the last line unless there was a newline character
 
                 vScrollBar.Maximum = (scrollableLines + Height / Font.Height) * (LineCount + Height / Font.Height);
