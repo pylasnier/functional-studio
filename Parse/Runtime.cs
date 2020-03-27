@@ -122,10 +122,38 @@ namespace Parse
                                 break;
 
                             case ConditionSpecifier.IfTrue:
+                                if (condition.Count != 0)
+                                {
+                                    EvaluateSubExpressions(condition, workingStack);
+                                    bool conditionValue = workingStack.Pop().Evaluate().Value;
+                                    if (conditionValue == true)
+                                    {
+                                        EvaluateSubExpressions(ifTrue, workingStack);
+                                    }
+                                    else
+                                    {
+                                        EvaluateSubExpressions(ifFalse, workingStack);
+                                    }
+                                }
                                 ifTrue.Enqueue(workingExpressionTuple);
                                 break;
 
                             case ConditionSpecifier.IfFalse:
+                                if (condition.Count != 0)
+                                {
+                                    EvaluateSubExpressions(condition, workingStack);
+                                    bool conditionValue = workingStack.Pop().Evaluate().Value;
+                                    if (conditionValue == true)
+                                    {
+                                        EvaluateSubExpressions(ifTrue, workingStack);
+                                        ifFalse.Clear();
+                                    }
+                                    else
+                                    {
+                                        EvaluateSubExpressions(ifFalse, workingStack);
+                                        ifTrue.Clear();
+                                    }
+                                }
                                 ifFalse.Enqueue(workingExpressionTuple);
                                 break;
                         }
@@ -137,10 +165,12 @@ namespace Parse
                         if (conditionValue == true)
                         {
                             EvaluateSubExpressions(ifTrue, workingStack);
+                            ifFalse.Clear();
                         }
                         else
                         {
                             EvaluateSubExpressions(ifFalse, workingStack);
+                            ifTrue.Clear();
                         }
                     }
                     if (conditionSpecifierCount == 0)
