@@ -365,9 +365,9 @@ namespace IDE
         //when necessary i.e. once saved as a new file, title needs to change accordingly.
         private class FileEdit : IDisposable
         {
-            public readonly TabPage Tab;
-            public readonly EditorTextBox TextBox;
-            public bool Saved;
+            public TabPage Tab { get; }
+            public EditorTextBox TextBox { get; }
+            public bool Saved { get; private set; }
             public string FilePath { get; private set; }
             
             private CancellationTokenSource tokenSource = new CancellationTokenSource();
