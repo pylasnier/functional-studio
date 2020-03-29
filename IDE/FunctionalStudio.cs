@@ -369,8 +369,6 @@ namespace IDE
             public EditorTextBox TextBox { get; }
             public bool Saved { get; private set; }
             public string FilePath { get; private set; }
-            
-            private CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             public FileEdit(TabControl tabControl)
             {
