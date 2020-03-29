@@ -311,7 +311,23 @@ namespace IDE
         //Enabled/disable save and save as buttons depending on if files are open
         private void UpdateUI()
         {
-            if (edits.Count > 0 && !running)
+            if (edits.Count == 0)
+            {
+                toolStripButtonNew.Enabled = true;
+                toolStripButtonOpen.Enabled = true;
+                newToolStripMenuItem.Enabled = true;
+                openToolStripMenuItem.Enabled = true;
+
+                toolStripButtonSave.Enabled = false;
+                toolStripButtonSaveAll.Enabled = false;
+                saveToolStripMenuItem.Enabled = false;
+                saveAsToolStripMenuItem.Enabled = false;
+                saveAllToolStripMenuItem.Enabled = false;
+                toolStripSplitButtonStart.Enabled = false;
+                closeToolStripMenuItem.Enabled = false;
+                startToolStripMenuItem.Enabled = false;
+            }
+            else if (!running)
             {
                 toolStripButtonNew.Enabled = true;
                 toolStripButtonOpen.Enabled = true;
@@ -327,28 +343,12 @@ namespace IDE
                 closeToolStripMenuItem.Enabled = true;
                 startToolStripMenuItem.Enabled = true;
             }
-            else if (running)
+            else
             {
                 toolStripButtonNew.Enabled = false;
                 toolStripButtonOpen.Enabled = false;
                 newToolStripMenuItem.Enabled = false;
                 openToolStripMenuItem.Enabled = false;
-
-                toolStripButtonSave.Enabled = false;
-                toolStripButtonSaveAll.Enabled = false;
-                saveToolStripMenuItem.Enabled = false;
-                saveAsToolStripMenuItem.Enabled = false;
-                saveAllToolStripMenuItem.Enabled = false;
-                toolStripSplitButtonStart.Enabled = false;
-                closeToolStripMenuItem.Enabled = false;
-                startToolStripMenuItem.Enabled = false;
-            }
-            else
-            {
-                toolStripButtonNew.Enabled = true;
-                toolStripButtonOpen.Enabled = true;
-                newToolStripMenuItem.Enabled = true;
-                openToolStripMenuItem.Enabled = true;
 
                 toolStripButtonSave.Enabled = false;
                 toolStripButtonSaveAll.Enabled = false;
