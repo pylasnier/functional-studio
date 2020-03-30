@@ -138,7 +138,6 @@ namespace IDE
                 dialog.Filter = "Paskell files (*.ps)|*.ps";
                 dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
-                Enabled = false;
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
                     try
@@ -152,7 +151,6 @@ namespace IDE
                         MessageBox.Show("Invalid file path");
                     }
                 }
-                Enabled = true;
             }
 
             return success;
