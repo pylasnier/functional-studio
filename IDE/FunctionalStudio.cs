@@ -175,6 +175,7 @@ namespace IDE
             edits.CopyTo(copyEdits);
             foreach (FileEdit edit in copyEdits)
             {
+                tabControl1.SelectTab(edit.Tab);
                 //Attempts to close every open edit and breaks from loop if one fails
                 if (!CloseTabFile(edit))
                 {
