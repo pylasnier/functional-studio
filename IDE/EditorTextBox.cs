@@ -79,7 +79,7 @@ namespace IDE
             }
         }
 
-        public new event KeyEventHandler KeyPress
+        public new event KeyEventHandler KeyDown
         {
             add => textBox.KeyDown += value;
             remove => textBox.KeyDown -= value;
@@ -94,8 +94,8 @@ namespace IDE
             InitializeComponent();
             TextChanged += OnTextChanged;
             MouseWheel += OnMouseWheel;
-            KeyPress += OnKeyDown;
-            vScrollBar.Scroll += (sender, e) =>{ ScrollTextBox(); };
+            KeyDown += OnKeyDown;
+            vScrollBar.Scroll += (sender, e) => { ScrollTextBox(); };
             UpdateLineNumbers();
         }
 
