@@ -210,15 +210,14 @@ namespace IDE
 
             lineNumbers.Text = newNumbers;
 
+            container.Height = textBox.GetPositionFromCharIndex(Text.Length).Y + Height;
+
             if (textBox.Lines.Length <= 1)
             {
-                container.Height = Height;
-
                 vScrollBar.Enabled = false;
             }
             else
             {
-                container.Height = textBox.GetPositionFromCharIndex(Text.Length - (Text.Last() == '\n' ? 0 : 1)).Y + Height;
 
                 //Value uses line count minus two, because we only want to be able to scroll past all but one of the lines (so the last line cannot be scrolled past)
                 //Therefore that makes the theoretical maximum the line count minus 1. However, the actual maximum scrollable value is Maximum - LargeChange + 1,
