@@ -175,7 +175,6 @@ namespace IDE
             edits.CopyTo(copyEdits);
             foreach (FileEdit edit in copyEdits)
             {
-                tabControl1.SelectTab(edit.Tab);
                 //Attempts to close every open edit and breaks from loop if one fails
                 if (!CloseTabFile(edit))
                 {
@@ -204,6 +203,7 @@ namespace IDE
             {
                 if (result == DialogResult.Yes)
                 {
+                    tabControl1.SelectTab(edit.Tab);
                     SaveFile(this, EventArgs.Empty);        //Using this rather than edit.SaveFile in case it is a new file and hasn't been saved before
                 }
 

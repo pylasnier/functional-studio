@@ -85,34 +85,9 @@ namespace IDE
             remove => textBox.KeyDown -= value;
         }
         //End of overloads
-        
-        public int LineCount        //textbox.Lines.Length doesn't quite give me what I want for line numbers
-        {
-            get
-            {
-                int value = 1;
-                bool lastLineEmpty = true;
-                for (int i = 0; i < Text.Length; i++)
-                {
-                    if (Text[i] == '\n')
-                    {
-                        value++;
-                        lastLineEmpty = true;
-                    }
-                    else if (lastLineEmpty)
-                    {
-                        lastLineEmpty = false;
-                    }
-                }
 
-                if (lastLineEmpty)
-                {
-                    value--;
-                }
-
-                return value;       //Resulting value is as many lines up to the end position, minus 1 if the last line doesn't contain any text i.e. is only a newline
-            }
-        }
+        private int ScrollMax { get => vScrollBar.Maximum - vScrollBar.LargeChange + 1; }
+        private int ScrollMin { get => vScrollBar.Minimum; }
 
         public EditorTextBox()
         {
@@ -127,25 +102,17 @@ namespace IDE
         private void OnTextChanged(object sender, EventArgs e)
         {
             UpdateLineNumbers();
-            //These just refocus the editor window by scrolling up/down to where the caret is
-            //The distinction between up or down is so it only scrolls as far as it has to, which depends on direction, or if not at all
-            if (vScrollBar.Enabled && textBox.GetLineFromCharIndex(SelectionStart) - vScrollBar.Value / (LineCount + Height / Font.Height) > Height / Font.Height)
-            {
-                vScrollBar.Value = (textBox.GetLineFromCharIndex(SelectionStart) - Height / Font.Height) * (LineCount + Height / Font.Height);
-                ScrollTextBox();
-            }
-            else if (vScrollBar.Enabled && textBox.GetLineFromCharIndex(SelectionStart) - vScrollBar.Value / (LineCount + Height / Font.Height) < 0)
-            {
-                vScrollBar.Value = textBox.GetLineFromCharIndex(SelectionStart) * (LineCount + Height / Font.Height);
-                ScrollTextBox();
-            }
+            ScrollToLine(textBox.GetLineFromCharIndex(SelectionStart));
         }
 
         //Effectively passes on mousewheel events from the textbox to the scrollbar
         private void OnMouseWheel(object sender, MouseEventArgs e)
         {
-            MethodInfo methodInfo = typeof(VScrollBar).GetMethod("OnMouseWheel", BindingFlags.NonPublic | BindingFlags.Instance);
-            methodInfo.Invoke(vScrollBar, new object[] { e });
+            if (vScrollBar.Enabled)
+            {
+                MethodInfo methodInfo = typeof(VScrollBar).GetMethod("OnMouseWheel", BindingFlags.NonPublic | BindingFlags.Instance);
+                methodInfo.Invoke(vScrollBar, new object[] { e });
+            }
         }
 
         //Makes pageup and pagedown scroll, and forces textbox to update when caret is moved using arrow keys
@@ -153,60 +120,112 @@ namespace IDE
         {
             if (e.KeyCode == Keys.PageUp)
             {
-                vScrollBar.Value = Math.Max(vScrollBar.Minimum, vScrollBar.Value - vScrollBar.LargeChange);
+                vScrollBar.Value = Math.Max(ScrollMin, vScrollBar.Value - vScrollBar.LargeChange);
                 ScrollTextBox();
                 e.Handled = true;
             }
             else if (e.KeyCode == Keys.PageDown)
             {
-                vScrollBar.Value = Math.Min(vScrollBar.Maximum, vScrollBar.Value + vScrollBar.LargeChange);
+                vScrollBar.Value = Math.Min(ScrollMax, vScrollBar.Value + vScrollBar.LargeChange);
                 ScrollTextBox();
                 e.Handled = true;
             }
             else if (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down || e.KeyCode == Keys.Left || e.KeyCode == Keys.Right)
             {
-                OnTextChanged(sender, EventArgs.Empty);
+                int line;
+
+                switch (e.KeyCode)
+                {
+                    case Keys.Up:
+                        line = textBox.GetLineFromCharIndex(SelectionStart) - 1;
+                        break;
+
+                    case Keys.Down:
+                        line = textBox.GetLineFromCharIndex(SelectionStart) + 1;
+                        break;
+
+                    case Keys.Left:
+                        if (textBox.SelectionStart > 0)
+                        {
+                            line = textBox.GetLineFromCharIndex(SelectionStart - 1);
+                        }
+                        else
+                        {
+                            line = textBox.GetLineFromCharIndex(SelectionStart);
+                        }
+                        break;
+
+                    case Keys.Right:
+                        if (textBox.SelectionStart < textBox.TextLength - 1)
+                        {
+                            line = textBox.GetLineFromCharIndex(SelectionStart + 1);
+                        }
+                        else
+                        {
+                            line = textBox.GetLineFromCharIndex(SelectionStart);
+                        }
+                        break;
+
+                    default:    //Never reached
+                        line = textBox.GetLineFromCharIndex(SelectionStart);
+                        break;
+                }
+
+                ScrollToLine(Math.Min(ScrollMax, Math.Max(ScrollMin, line)));
             }
         }
 
-        //The strange combinations of divisions is because the integer font height and the height of many lines of a give font don't line up
-        //and so the actual height must be used instead. This is on top of the scrollbar value having a multiplier which makes the thumb size appropriate
         private void ScrollTextBox()
         {
-            container.Location = new Point(0,
-                (int)(-vScrollBar.Value / (LineCount + Height / Font.Height) / Math.Max(1f, LineCount - 1f) * Math.Max(Font.Height, textBox.GetPositionFromCharIndex(Text.Length - 1).Y)));
+            container.Location = new Point(0, -vScrollBar.Value * (container.Height - Height) / ScrollMax);
+        }
+
+        private void ScrollToLine(int line)
+        {
+            //These just refocus the editor window by scrolling up/down to where the caret is
+            //The distinction between up or down is so it only scrolls as far as it has to, which depends on direction, or if not at all
+            if (line - vScrollBar.Value >= Height / Font.Height)
+            {
+                vScrollBar.Value = line - Height / Font.Height;
+                ScrollTextBox();
+            }
+            else if (line - vScrollBar.Value <= 0)
+            {
+                vScrollBar.Value = line;
+                ScrollTextBox();
+            }
         }
 
         public void UpdateLineNumbers()
         {
             string newNumbers = "";
-            for (int i = 0; i <= LineCount; i++)
+            for (int i = 0; i < textBox.Lines.Length; i++)
             {
                 newNumbers += $"{i + 1}\n";
+            }
+            if (Text.Length == 0 || Text.Last() != '\n')
+            {
+                newNumbers += $"{textBox.Lines.Length + 1}";
             }
 
             lineNumbers.Text = newNumbers;
 
-            container.Height = Font.Height * LineCount + Height;
-
-            if (textBox.Lines.Length - 1 <= 0)
+            if (textBox.Lines.Length <= 1)
             {
+                container.Height = Height;
+
                 vScrollBar.Enabled = false;
-                vScrollBar.Maximum = 0;
             }
             else
             {
-                //A large consideration for the scrollbar was needed, as the ratio of the size of the thumb to the size of the scrollbar is actually given
-                //by the ratio of the LargeChange property to the difference between the Maximum and Minimum properties. Also a strange behaviour of the
-                //scrollbar is that the value of it can never make it to Maximum, only to Maximum - LargeChange, similar to how it visually behaves.
-                //The following complicated adjustments to these properties are to compensate for these behaviours, and to achieve a thumb whose size ratio
-                //matches the size ratio of the visible window to the whole text file
+                container.Height = textBox.GetPositionFromCharIndex(Text.Length - (Text.Last() == '\n' ? 0 : 1)).Y + Height;
 
-                int scrollableLines = LineCount - (Text.Last() == '\n' ? 0 : 1); //Only so that it doesn't scroll to the last line unless there was a newline character
-
-                vScrollBar.Maximum = (scrollableLines + Height / Font.Height) * (LineCount + Height / Font.Height);
-                vScrollBar.SmallChange = Math.Min(3, scrollableLines) * (LineCount + Height / Font.Height);
-                vScrollBar.LargeChange = Height / Font.Height * (LineCount + Height / Font.Height);
+                //Value uses line count minus two, because we only want to be able to scroll past all but one of the lines (so the last line cannot be scrolled past)
+                //Therefore that makes the theoretical maximum the line count minus 1. However, the actual maximum scrollable value is Maximum - LargeChange + 1,
+                //so Maximum must be set to actual maximum plus LargeChange minus one, therefore the line count minus 2 plus LargeChange, set afterwards
+                vScrollBar.Maximum = textBox.Lines.Length - 2 + Height / Font.Height;
+                vScrollBar.SmallChange = Math.Min(3, textBox.Lines.Length);
+                vScrollBar.LargeChange = Height / Font.Height;
                 vScrollBar.Enabled = true;
             }
         }
