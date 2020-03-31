@@ -86,7 +86,7 @@ namespace IDE
         }
         //End of overloads
 
-        private int ScrollMax { get => vScrollBar.Maximum - vScrollBar.LargeChange + 1; }
+        private int ScrollMax { get => vScrollBar.Maximum - vScrollBar.Minimum - vScrollBar.LargeChange + 1; }
         private int ScrollMin { get => vScrollBar.Minimum; }
 
         public EditorTextBox()
