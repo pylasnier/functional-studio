@@ -823,59 +823,59 @@ using Utility;
 
 
         //All the base expression functions that are added at the beginning of compilation
-        private static PExpression Add(Stack<PExpression> a)
+        private static PExpression Add(Queue<PExpression> a)
         {
-            return new PExpression(a.Pop().Evaluate().Value + a.Pop().Evaluate().Value);
+            return new PExpression(a.Dequeue().Evaluate().Value + a.Dequeue().Evaluate().Value);
         }
 
-        private static PExpression Subtract(Stack<PExpression> a)
+        private static PExpression Subtract(Queue<PExpression> a)
         {
-            return new PExpression(a.Pop().Evaluate().Value - a.Pop().Evaluate().Value);
+            return new PExpression(a.Dequeue().Evaluate().Value - a.Dequeue().Evaluate().Value);
         }
 
-        private static PExpression Multiply(Stack<PExpression> a)
+        private static PExpression Multiply(Queue<PExpression> a)
         {
-            return new PExpression(a.Pop().Evaluate().Value * a.Pop().Evaluate().Value);
+            return new PExpression(a.Dequeue().Evaluate().Value * a.Dequeue().Evaluate().Value);
         }
 
-        private static PExpression Divide(Stack<PExpression> a)
+        private static PExpression Divide(Queue<PExpression> a)
         {
-            return new PExpression(a.Pop().Evaluate().Value / a.Pop().Evaluate().Value);
+            return new PExpression(a.Dequeue().Evaluate().Value / a.Dequeue().Evaluate().Value);
         }
 
-        private static PExpression Not(Stack<PExpression> a)
+        private static PExpression Not(Queue<PExpression> a)
         {
-            return new PExpression(!(bool)a.Pop().Evaluate().Value);
+            return new PExpression(!(bool)a.Dequeue().Evaluate().Value);
         }
 
-        private static PExpression And(Stack<PExpression> a)
+        private static PExpression And(Queue<PExpression> a)
         {
-            return new PExpression((bool)a.Pop().Evaluate().Value && (bool)a.Pop().Evaluate().Value);
+            return new PExpression((bool)a.Dequeue().Evaluate().Value && (bool)a.Dequeue().Evaluate().Value);
         }
 
-        private static PExpression Or(Stack<PExpression> a)
+        private static PExpression Or(Queue<PExpression> a)
         {
-            return new PExpression((bool)a.Pop().Evaluate().Value || (bool)a.Pop().Evaluate().Value);
+            return new PExpression((bool)a.Dequeue().Evaluate().Value || (bool)a.Dequeue().Evaluate().Value);
         }
 
-        private static PExpression Xor(Stack<PExpression> a)
+        private static PExpression Xor(Queue<PExpression> a)
         {
-            return new PExpression((bool)a.Pop().Evaluate().Value ^ (bool)a.Pop().Evaluate().Value);
+            return new PExpression((bool)a.Dequeue().Evaluate().Value ^ (bool)a.Dequeue().Evaluate().Value);
         }
 
-        private static PExpression EqualTo(Stack<PExpression> a)
+        private static PExpression EqualTo(Queue<PExpression> a)
         {
-            return new PExpression(a.Pop().Evaluate().Value == a.Pop().Evaluate().Value);
+            return new PExpression(a.Dequeue().Evaluate().Value == a.Dequeue().Evaluate().Value);
         }
 
-        private static PExpression GreaterThan(Stack<PExpression> a)
+        private static PExpression GreaterThan(Queue<PExpression> a)
         {
-            return new PExpression(a.Pop().Evaluate().Value > a.Pop().Evaluate().Value);
+            return new PExpression(a.Dequeue().Evaluate().Value > a.Dequeue().Evaluate().Value);
         }
 
-        private static PExpression LessThan(Stack<PExpression> a)
+        private static PExpression LessThan(Queue<PExpression> a)
         {
-            return new PExpression(a.Pop().Evaluate().Value < a.Pop().Evaluate().Value);
+            return new PExpression(a.Dequeue().Evaluate().Value < a.Dequeue().Evaluate().Value);
         }
     }
 

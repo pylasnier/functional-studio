@@ -20,8 +20,8 @@ namespace Parse
 
         //Variables used if the expresion is a base expression
         private readonly bool isBaseExpression = false;
-        private readonly Stack<PExpression> arguments;
-        private readonly Func<Stack<PExpression>, PExpression> function;
+        private readonly Queue<PExpression> arguments;
+        private readonly Func<Queue<PExpression>, PExpression> function;
 
         //Instantiates expression representing data value
         public PExpression(dynamic value, string identifier = "")
@@ -33,16 +33,16 @@ namespace Parse
         }
 
         //Instatiates base function definition
-        public PExpression(Func<Stack<PExpression>, PExpression> function, TypeSignature typeSignature, string identifier = "")
+        public PExpression(Func<Queue<PExpression>, PExpression> function, TypeSignature typeSignature, string identifier = "")
         {
             Identifier = identifier;
             TypeSignature = typeSignature;
-            arguments = new Stack<PExpression>();
+            arguments = new Queue<PExpression>();
             isBaseExpression = true;
             this.function = function;
         }
 
-        //Instantiates function definition (function should be constructed using SubExpressions queue instantiated here)
+        //Instantiates function or unevaluated variable definition (function should be constructed using SubExpressions stack instantiated here)
         public PExpression(TypeSignature typeSignature, string identifier = "")
         {
             Identifier = identifier;
@@ -50,7 +50,7 @@ namespace Parse
             SubExpressions = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
         }
 
-        //Instantiates paramater of function (would be added to SubExpressions queue of function definition)
+        //Instantiates paramater of function (would be added to SubExpressions stack of function definition)
         public PExpression(int parameterIndex, TypeSignature typeSignature, string identifier = "")
         {
             isParamater = true;
@@ -191,7 +191,7 @@ namespace Parse
         public PExpression Evaluate(PExpression argument)
         {
             //Important here however if that the expression is an definition, it remains unchanged and a new instance
-            //of the class is created as the worked expression, protecting the function definition
+            //of the class is created as the worked expression, protecting the expression definition
             PExpression workedExpression = CloneWorkedExpression();     //Only clones if not already worked expression (handled within method)
             if (!isBaseExpression)
             {
@@ -242,19 +242,15 @@ namespace Parse
             //For if the expression is a base expression
             else
             {
-                workedExpression.arguments.Push(argument);
+                workedExpression.arguments.Enqueue(argument);
                 workedExpression.TypeSignature = workedExpression.TypeSignature.Return;
                 if (!workedExpression.TypeSignature.IsFunction)
                 {
-                    Stack<PExpression> arguments = new Stack<PExpression>();
-                    while (workedExpression.arguments.Count > 0)
-                    {
-                        arguments.Push(workedExpression.arguments.Pop());
-                    }
                     try
                     {
                         //Calls the function of the base expression and passes it the stack of arguments passed
-                        PExpression result = function(arguments).CloneWorkedExpression(workedExpression.Identifier);    //Calling clone function just allows the identifier to be assigned
+                        //Calling clone function just allows the identifier to be assigned
+                        PExpression result = function(workedExpression.arguments).CloneWorkedExpression(workedExpression.Identifier);
                         workedExpression = result;
                     }
                     catch
@@ -267,7 +263,7 @@ namespace Parse
             }
         }
 
-        //When compiled, every function definition is classed as a definition, which indicates that it represents the original definition of any expression.
+        //When compiled, every expression definition is classed as a definition, which indicates that it represents the original definition of any expression.
         //It is important that when evaluating expressions, the original definition remains untouched as a function or expression may be referenced
         //in multiple places, for example in recursion. Therefore a clone must be used instead, and it is identified as a worked expression which is
         //safe to work on
