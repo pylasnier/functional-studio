@@ -66,7 +66,7 @@ namespace Parse
         }
 
         //This function is called when the value of an expression is trying to be retrieved
-        //The expression must therefore be a variable or a parametised function
+        //The expression must therefore be a variable or a parameterised function
         public PExpression Evaluate()
         {
             if (state == PExpressionState.Evaluated)
@@ -228,7 +228,7 @@ namespace Parse
 
                     if (!workedExpression.TypeSignature.IsFunction)
                     {
-                        //Function fully parametised
+                        //Function fully parameterised
                         workedExpression = workedExpression.Evaluate();
                     }
                 }
