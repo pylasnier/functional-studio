@@ -204,6 +204,8 @@ namespace Parse
                         (PExpression expression, (int, Stack<ConditionSpecifier>)) expression = workedExpression.SubExpressions.Pop();
                         if (expression.expression.isParamater)
                         {
+                            //It is important to clone the parameter, else each of a parameter in an expression where there are multiple will be changed
+                            expression.expression = expression.expression.CloneWorkedExpression();
                             //Parameters are indexed, 0 upwards, where the highest numbered are for the final argument
                             if (expression.expression.parameterIndex == 0)
                             {
