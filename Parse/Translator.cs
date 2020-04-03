@@ -45,12 +45,12 @@ using Utility;
             codeMatched.Populate(false, 0, codeMatched.Length);
 
             //Loops through every token for their regex patterns, as given by their RegexPattern custom attribute
-            foreach (var tokenType in Enum.GetValues(typeof(TokenType)))
+            foreach (TokenType tokenType in Enum.GetValues(typeof(TokenType)))
             {
-                matches = new Regex(((TokenType) tokenType).GetPattern()).Matches(sourceCode);
+                matches = new Regex(tokenType.GetPattern()).Matches(sourceCode);
                 foreach (Match match in matches)
                 {
-                    tokenCollection.Add(new Token(match.Value, (TokenType) tokenType, match.Index));
+                    tokenCollection.Add(new Token(match.Value, tokenType, match.Index));
                     codeMatched.Populate(true, match.Index, match.Length);      //Token parsed, so the code it matched with must be valid
                 }
             }
@@ -703,7 +703,7 @@ using Utility;
                             outExpression.PushSubExpression(expression, baseTypeSignature.ArgumentCount - targetTypeSignature.ArgumentCount,
                                 new Stack<ConditionSpecifier>(conditionSpecifiers));
                         }
-                        //Otherwise, it must match the type signature of the next argument of the base expression
+                        //Otherwise, it must match the type signature of the next argument of the base subexpression
                         else
                         {
                             if (expression.TypeSignature != argumentTypeSignature)

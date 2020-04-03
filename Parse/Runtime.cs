@@ -5,12 +5,12 @@ namespace Parse
 {
     public class PExpression
     {
-        public string Identifier { get; protected set; }
+        public string Identifier { get; private set; }
         public dynamic Value { get; private set; }      //Used if the expression is an evaluated variable
-        public TypeSignature TypeSignature { get; protected set; }
+        public TypeSignature TypeSignature { get; private set; }
 
         //Used if the expression is an unevaluated expression i.e. an unevaluated variable or a function definition
-        protected Stack<(PExpression, (int, Stack<ConditionSpecifier>))> SubExpressions { get; }
+        private Stack<(PExpression, (int, Stack<ConditionSpecifier>))> SubExpressions { get; }
 
         //Used if the expression is a parameter
         private readonly bool isParamater = false;
@@ -250,7 +250,8 @@ namespace Parse
                     {
                         //Calls the function of the base expression and passes it the stack of arguments passed
                         //Calling clone function just allows the identifier to be assigned
-                        PExpression result = function(workedExpression.arguments).CloneWorkedExpression(workedExpression.Identifier);
+                        PExpression result = function(workedExpression.arguments);
+                        result.Identifier = Identifier;
                         workedExpression = result;
                     }
                     catch
@@ -267,28 +268,23 @@ namespace Parse
         //It is important that when evaluating expressions, the original definition remains untouched as a function or expression may be referenced
         //in multiple places, for example in recursion. Therefore a clone must be used instead, and it is identified as a worked expression which is
         //safe to work on
-        protected PExpression CloneWorkedExpression(string identifier = null)
+        private PExpression CloneWorkedExpression()
         {
             PExpression workedExpression;
-            
-            if (identifier == null)
-            {
-                identifier = Identifier;
-            }
 
             if (state == PExpressionState.Definition)
             {
                 if (isParamater)
                 {
-                    workedExpression = new PExpression(parameterIndex, TypeSignature, identifier);
+                    workedExpression = new PExpression(parameterIndex, TypeSignature, Identifier);
                 }
                 else if (isBaseExpression)
                 {
-                    workedExpression = new PExpression(function, TypeSignature, identifier);
+                    workedExpression = new PExpression(function, TypeSignature, Identifier);
                 }
                 else
                 {
-                    workedExpression = new PExpression(TypeSignature, identifier);
+                    workedExpression = new PExpression(TypeSignature, Identifier);
                     Stack<(PExpression, (int, Stack<ConditionSpecifier>))> tempStack = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
                     while (SubExpressions.Count > 0)
                     {
@@ -316,7 +312,6 @@ namespace Parse
             else
             {
                 workedExpression = this;
-                workedExpression.Identifier = identifier;
             }
 
             return workedExpression;
@@ -392,7 +387,7 @@ namespace Parse
         public override bool Equals(object obj)
         {
             //Check for null and compare run-time types.
-            if ((obj == null) || !this.GetType().Equals(obj.GetType()))
+            if ((obj == null) || !GetType().Equals(obj.GetType()))
             {
                 return false;
             }

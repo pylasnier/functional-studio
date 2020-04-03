@@ -28,6 +28,7 @@ namespace IDE
         private void NewFile(object sender, EventArgs e)    //Handles newToolStripMenuItem.Click and toolStripSplitButtonNew.Click
         {
             var edit = new FileEdit(tabControl1);
+            tabControl1.Resize += edit.OnResize;
 
             //User-friendliness, auto-focuses text editor in tab when opening a new file
             tabControl1.SelectTab(edit.Tab);
@@ -52,6 +53,7 @@ namespace IDE
                     try
                     {
                         var edit = new FileEdit(tabControl1, dialog.FileName);
+                        tabControl1.Resize += edit.OnResize;
 
                         //User-friendliness, auto-focuses text editor in tab when opening a new file
                         tabControl1.SelectTab(edit.Tab);
@@ -207,6 +209,7 @@ namespace IDE
                     SaveFile(this, EventArgs.Empty);        //Using this rather than edit.SaveFile in case it is a new file and hasn't been saved before
                 }
 
+                tabControl1.Resize -= edit.OnResize;
                 edits.Remove(edit);
                 edit.Dispose();
             }
@@ -373,6 +376,8 @@ namespace IDE
             public bool Saved { get; private set; }
             public string FilePath { get; private set; }
 
+            private EventHandler tabResize;
+
             public FileEdit(TabControl tabControl)
             {
                 Tab = new TabPage("Untitled");
@@ -383,7 +388,6 @@ namespace IDE
                 Tab.Controls.Add(TextBox);
                 TextBox.Dock = DockStyle.Fill;  //Necessary for textbox to scale with the window properly when resizing
                 TextBox.TextChanged += TextChanged;
-                tabControl.Resize += OnResize;
 
                 tabControl.TabPages.Add(Tab);
             }
@@ -468,7 +472,7 @@ namespace IDE
                 //catch { }
             }
 
-            private void OnResize(object sender, EventArgs e)
+            public void OnResize(object sender, EventArgs e)
             {
                 TextBox.UpdateLineNumbers();        //Called for the same reason as it is called in the constructor for opening a file
             }
