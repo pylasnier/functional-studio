@@ -21,7 +21,7 @@ namespace Parse
         //Variables used if the expresion is a base expression
         private readonly bool isBaseExpression = false;
         private readonly Queue<PExpression> arguments;
-        private readonly Func<Queue<PExpression>, PExpression> function;
+        private readonly Func<Stack<(PExpression, (int, Stack<ConditionSpecifier>))>, PExpression> function;
 
         //Instantiates expression representing data value
         public PExpression(dynamic value, string identifier = "")
@@ -33,13 +33,30 @@ namespace Parse
         }
 
         //Instatiates base function definition
-        public PExpression(Func<Queue<PExpression>, PExpression> function, TypeSignature typeSignature, string identifier = "")
+        public PExpression(Func<Stack<(PExpression, (int, Stack<ConditionSpecifier>))>, PExpression> function, TypeSignature typeSignature, string identifier = "")
         {
             Identifier = identifier;
             TypeSignature = typeSignature;
             arguments = new Queue<PExpression>();
+            SubExpressions = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
             isBaseExpression = true;
             this.function = function;
+
+            // Fill SubExpressions stack with parameters based on type signature, just like user-defined functions.
+            TypeSignature follow = typeSignature;
+            int i = 0;
+            Stack<(PExpression, (int, Stack<ConditionSpecifier>))> tempStack = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
+
+            while (follow.IsFunction)
+            {
+                tempStack.Push((new PExpression(i, follow.Parameter), (0, new Stack<ConditionSpecifier>())));
+                follow = follow.Return;
+                i++;
+            }
+            while (tempStack.Count > 0)
+            {
+                SubExpressions.Push(tempStack.Pop());
+            }
         }
 
         //Instantiates function or unevaluated variable definition (function should be constructed using SubExpressions stack instantiated here)
@@ -180,6 +197,10 @@ namespace Parse
                         workingStack.Push(expression);
                     }
                 }
+                catch (PaskellRuntimeException ex)
+                {
+                    throw ex;
+                }
                 catch
                 {
                     throw new PaskellRuntimeException("Failed to evaluate expression", this);
@@ -192,76 +213,75 @@ namespace Parse
         {
             //Important here however if that the expression is an definition, it remains unchanged and a new instance
             //of the class is created as the worked expression, protecting the expression definition
-            PExpression workedExpression = CloneWorkedExpression();     //Only clones if not already worked expression (handled within method)
-            if (!isBaseExpression)
+            PExpression workedExpression = CloneWorkedExpression();     //Only clones if not already evaluated (handled within method)
+
+            if (workedExpression.state == PExpressionState.WorkedExpression)
             {
-                if (workedExpression.state == PExpressionState.WorkedExpression)
+                //Using a temp stack effectively allows looping through a stack by transferring items to the temp stack, then back to the original once done
+                Stack<(PExpression, (int, Stack<ConditionSpecifier>))> tempStack = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
+                while (workedExpression.SubExpressions.Count > 0)
                 {
-                    //Using a temp stack effectively allows looping through a stack by transferring items to the temp stack, then back to the original once done
-                    Stack<(PExpression, (int, Stack<ConditionSpecifier>))> tempStack = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
-                    while (workedExpression.SubExpressions.Count > 0)
+                    (PExpression expression, (int, Stack<ConditionSpecifier>)) expression = workedExpression.SubExpressions.Pop();
+                    if (expression.expression.isParamater)
                     {
-                        (PExpression expression, (int, Stack<ConditionSpecifier>)) expression = workedExpression.SubExpressions.Pop();
-                        if (expression.expression.isParamater)
+                        //It is important to clone the parameter, else each of a parameter in an expression where there are multiple will be changed
+                        expression.expression = expression.expression.CloneWorkedExpression();
+                        //Parameters are indexed, 0 upwards, where the highest numbered are for the final argument
+                        if (expression.expression.parameterIndex == 0)
                         {
-                            //It is important to clone the parameter, else each of a parameter in an expression where there are multiple will be changed
-                            expression.expression = expression.expression.CloneWorkedExpression();
-                            //Parameters are indexed, 0 upwards, where the highest numbered are for the final argument
-                            if (expression.expression.parameterIndex == 0)
-                            {
-                                expression.expression = argument;
-                            }
-                            else
-                            {
-                                //So that for the next argument passed, the next index i.e. index 1 will be replaced
-                                //This is done by decrementing all indicies, so 1 becomes 0 etc.
-                                expression.expression.parameterIndex--;
-                            }
+                            expression.expression = argument.CloneWorkedExpression();
                         }
-                        tempStack.Push(expression);
+                        else
+                        {
+                            //So that for the next argument passed, the next index i.e. index 1 will be replaced
+                            //This is done by decrementing all indicies, so 1 becomes 0 etc.
+                            expression.expression.parameterIndex--;
+                        }
                     }
-                    while (tempStack.Count > 0)
-                    {
-                        workedExpression.SubExpressions.Push(tempStack.Pop());
-                    }
-                    workedExpression.TypeSignature = workedExpression.TypeSignature.Return;
-
-                    if (!workedExpression.TypeSignature.IsFunction)
-                    {
-                        //Function fully parameterised
-                        workedExpression = workedExpression.Evaluate();
-                    }
+                    tempStack.Push(expression);
                 }
-                else
+                while (tempStack.Count > 0)
                 {
-                    throw new PaskellRuntimeException("Trying to pass argument to non-function expression", workedExpression);
+                    workedExpression.SubExpressions.Push(tempStack.Pop());
                 }
-
-                return workedExpression;
+                workedExpression.TypeSignature = workedExpression.TypeSignature.Return;
             }
-            //For if the expression is a base expression
             else
             {
-                workedExpression.arguments.Enqueue(argument);
-                workedExpression.TypeSignature = workedExpression.TypeSignature.Return;
-                if (!workedExpression.TypeSignature.IsFunction)
+                throw new PaskellRuntimeException("Trying to pass argument to non-function expression", workedExpression);
+            }
+
+            //Function fully parameterised
+            if (!workedExpression.TypeSignature.IsFunction)
+            {
+                //For if the expression is a base expression
+                if (isBaseExpression)
                 {
                     try
                     {
-                        //Calls the function of the base expression and passes it the stack of arguments passed
-                        //Calling clone function just allows the identifier to be assigned
-                        PExpression result = function(workedExpression.arguments);
+                        //Calls the function of the base expression and passes it the stack of subexpressions
+                        PExpression result = function(workedExpression.SubExpressions);
                         result.Identifier = Identifier;
                         workedExpression = result;
+                    }
+                    catch (PaskellRuntimeException ex)
+                    {
+                        throw ex;
                     }
                     catch
                     {
                         throw new PaskellRuntimeException("Failure trying to evaluate base expression", workedExpression);
                     }
+
                 }
 
-                return workedExpression;
+                else
+                {
+                    workedExpression = workedExpression.Evaluate();
+                }
             }
+
+            return workedExpression;
         }
 
         //When compiled, every expression definition is classed as a definition, which indicates that it represents the original definition of any expression.
@@ -272,19 +292,23 @@ namespace Parse
         {
             PExpression workedExpression;
 
-            if (state == PExpressionState.Definition)
+            if (state != PExpressionState.Evaluated)
             {
                 if (isParamater)
                 {
                     workedExpression = new PExpression(parameterIndex, TypeSignature, Identifier);
                 }
-                else if (isBaseExpression)
-                {
-                    workedExpression = new PExpression(function, TypeSignature, Identifier);
-                }
                 else
                 {
-                    workedExpression = new PExpression(TypeSignature, Identifier);
+                    if (isBaseExpression)
+                    {
+                        workedExpression = new PExpression(function, TypeSignature, Identifier);
+                    }
+                    else
+                    {
+                        workedExpression = new PExpression(TypeSignature, Identifier);
+                    }
+
                     Stack<(PExpression, (int, Stack<ConditionSpecifier>))> tempStack = new Stack<(PExpression, (int, Stack<ConditionSpecifier>))>();
                     while (SubExpressions.Count > 0)
                     {
