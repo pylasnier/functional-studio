@@ -269,17 +269,17 @@ namespace IDE
                     }
                     else
                     {
-                        try
-                        {
+                        // try
+                        // {
                             PExpression main = results[0];
                             PExpression result = main.Evaluate();       //Run the code
                             output.Text += result.Value;
-                        }
-                        catch
-                        {
-                            throw new PaskellRuntimeException("Failure evaluating main: was there a baseless recursion function?", null);
-                        }
-                    }
+                        // }
+                        // catch
+                        // {
+                        //     throw new PaskellRuntimeException("Failure evaluating main: was there a baseless recursion function?", null);
+                        // }
+                }
                 }
                 catch (PaskellRuntimeException f)
                 {
