@@ -1,0 +1,22 @@
+int -> int List i = i0 i
+int -> int i0 i = if LessThan i 1 then 10 else i1 (Subtract i 1) endif
+int -> int i1 i = if LessThan i 1 then 7 else i2 (Subtract i 1) endif
+int -> int i2 i = if LessThan i 1 then 12 else i3 (Subtract i 1) endif
+int -> int i3 i = if LessThan i 1 then 69 else i4 (Subtract i 1) endif
+int -> int i4 i = if LessThan i 1 then 1000 else i5 (Subtract i 1) endif
+int -> int i5 i = 42
+
+int -> int Linear i = i
+
+(int -> int) -> (int -> int) -> int -> int Map list f i = f (list i)
+
+(int -> int) -> (int -> int -> int) -> int -> int Fold list f i = if LessThan i 1 then list i else f (list i) (Fold list f (Subtract i 1)) endif
+
+int -> (int -> int) -> int -> int Unfold start f i = if LessThan i 1 then start else f (Unfold start f (Subtract i 1)) endif
+ 
+int -> int ListPlus1 i = Map List (Add 1) i
+int -> int ListMult2 i = Map List (Multiply 2) i
+
+int -> int Factorial n = Fold (Map Linear (Add 1)) Multiply (Subtract n 1)
+
+int main = Unfold 1 (Multiply 2) 4

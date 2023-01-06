@@ -1,0 +1,6 @@
+(int -> int -> int) -> int -> int HOFunc f n = if EqualTo n 1 then 1 else f n (HOFunc f (Subtract n 1)) endif
+
+int -> int Factorial n = HOFunc Multiply n
+int -> int TriangleNum n = HOFunc Add n
+
+int main = TriangleNum 3

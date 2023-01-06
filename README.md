@@ -45,3 +45,38 @@ The factorial function could be rewritten (and renamed to something more appropr
 ```
 
 The factorial function could then be newly defined as `int -> int Factorial n = HOFunc Multiply n`, or a triangle number function as `int -> int TriangleNum n = HOFunc Add n`.
+
+## Arrays
+
+Though arrays are not implemented as an actual data type, it is possible to emulate them using indexer functions. Because they would simply be functions, there cannot be arbitrary start and end-points built in (though 0 is a sensible starting index by common practice); array length must be held elsewhere. On the other hand, arrays could be considered of infinite length, if for example a meta-array is defined simply as an indexer function that calculates some value from its index.
+
+The simplest meta-array is a linear map of the contents to the index: `int -> int LinearList i = i`. This may seem useless at first, but the usefulness of being able to pass this function unevaluated as an argument will become apparent.
+
+Arrays with arbitrary values are possible simply by checking for a particular index in if clauses and returning those arbitrary values. Care has to be taken for how out-of-range indexes are handled; would you like the value at the nearest valid index to be used or should all out-of-range values be set to 0, for example?
+
+With the construct of arrays as indexing functions, it becomes possible to define functions that operate on arrays, such as `Map` and `Fold`. `Map` simply can be defined as:
+
+```
+(int -> int) -> (int -> int) -> int -> int Map list f i = f (list i)
+```
+
+It is effectively a simple rearrangement of expressions, but this function allows us to write `(Map list f)` as a new array, i.e. a new indexer function, and pass this around as an argument. A slightly more complex function, `Fold` can be written as:
+
+```
+(int -> int) -> (int -> int -> int) -> int -> int Fold list f i = \
+    if LessThan i 1 then list i else f (list i) (Fold list f (Subtract i 1)) endif
+```
+
+where the function applies the passed function to the value at index `i` and the result of the fold on the remainder of the array below `i`. This allows the factorial function to be reimplemented in terms of these array operations using the `LinearList` array defined prior, though some shifting is required to have the array start at 1 rather than 0:
+
+```
+int -> int Factorial n = Fold (Map Linear (Add 1)) Multiply (Subtract n 1)
+```
+
+Meta-arrays can be produced by other functions also, such as an `Unfold` function which behaves a bit like a `Fold` in reverse. It will start with a given value at index 0 and apply the given function to each array element as we travel up the array:
+
+```
+int -> (int -> int) -> int -> int Unfold start f i = if LessThan i 1 then start else f (Unfold start f (Subtract i 1)) endif
+```
+
+The indexer function `Unfold 1 (Multiply 2)` is the array of all the powers of 2.
