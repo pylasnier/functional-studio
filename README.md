@@ -73,6 +73,12 @@ where the function applies the passed function to the value at index `i` and the
 int -> int Factorial n = Fold (Map Linear (Add 1)) Multiply (Subtract n 1)
 ```
 
+Triangle numbers can be produced similarly without the shifting:
+
+```
+int -> int Triangle n = Fold Linear Add n
+```
+
 Meta-arrays can be produced by other functions also, such as an `Unfold` function which behaves a bit like a `Fold` in reverse. It will start with a given value at index 0 and apply the given function to each array element as we travel up the array:
 
 ```

@@ -18,5 +18,6 @@ int -> int ListPlus1 i = Map List (Add 1) i
 int -> int ListMult2 i = Map List (Multiply 2) i
 
 int -> int Factorial n = Fold (Map Linear (Add 1)) Multiply (Subtract n 1)
+int -> int Triangle n = Fold Linear Add n
 
 int main = Unfold 1 (Multiply 2) 4
